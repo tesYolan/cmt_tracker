@@ -1,0 +1,8 @@
+<launch>
+
+
+
+<node pkg="cmt_tracker" name="cmt_tracker_node" type="cmt_tracker_node" output="screen">
+
+</node>
+</launch>
