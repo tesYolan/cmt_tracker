@@ -1,8 +1,13 @@
 <launch>
-
-
-
-<node pkg="cmt_tracker" name="cmt_tracker_node" type="cmt_tracker_node" output="screen">
-
-</node>
+<arg name="choose_web_cam" default="False"/>
+<group if="$(arg choose_web_cam)">
+<param name= "usb_cam/pixel_format" value="yuyv"/>
+<param name= "camera_topic" value="/usb_cam/image_raw"/>
+<node pkg="usb_cam" name="usb_cam_node" type="usb_cam_node"/>
+</group>
+<group unless="$(arg choose_web_cam)">
+<include file="$(find realsense)/realsense_r200_launch.launch"/>
+<param name= "camera_topic" value="/camera/color/image_raw"/>
+</group>
+<node pkg="cmt_tracker" name="face_locator_node" type="face_locator_node"/>
 </launch>
