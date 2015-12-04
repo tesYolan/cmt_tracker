@@ -35,6 +35,7 @@ class ImageConverter
   std::vector<cv::Rect> faces;
   std::vector<cv::Rect> eyes; 
   cmt_tracker::Faces cmt_face_locations;
+  std::string subscribe_topic;
   int time_sec;
   std_msgs::String tracking_method;
   bool setup;
@@ -44,7 +45,8 @@ public:
   {
     counter = 0;
     // Subscribe to input video feed and publish output video feed
-    image_sub_ = it_.subscribe("/usb_cam/image_raw", 1,
+    nh_.getParam("camera_topic", subscribe_topic);
+    image_sub_ = it_.subscribe(subscribe_topic, 1,
                                &ImageConverter::imageCb, this);
     // image_pub_ = it_.advertise("/image_converter/output_video", 1);
     faces_locations = nh_.advertise<cmt_tracker::Faces>("face_locations", 10);

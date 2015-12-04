@@ -54,6 +54,7 @@ public:
     image_transport::Subscriber image_subscriber;
     image_transport::Publisher image_publisher;
     sensor_msgs::ImagePtr image_published;
+    std::string subscribe_topic; 
     //Nodehandle from the rqt plugin.
     ros::NodeHandle nh;
 

@@ -15,7 +15,6 @@
 
 #include <iostream>
 #include <sstream>
-#include <sstream>
 
 #define SSTR( x ) dynamic_cast< std::ostringstream & >(( std::ostringstream() << std::dec << x ) ).str()
 
@@ -67,10 +66,10 @@ void tracker_plugin::initPlugin(qt_gui_cpp::PluginContext& context)
   if ( !face_cascade.load("/usr/share/opencv/haarcascades/haarcascade_frontalface_alt.xml" ) || !eyes_cascade.load("/usr/share/opencv/haarcascades/haarcascade_eye_tree_eyeglasses.xml" ))
   { setup = false;  };
   setup = true;
-
+  nh.getParam("camera_topic", subscribe_topic);
   face_subscriber = (nh).subscribe("face_locations", 1, &rqt_tracker_view::tracker_plugin::list_of_faces_update, this);
   image_transport::ImageTransport it(nh);
-  image_subscriber = it.subscribe("/usb_cam/image_raw", 1, &rqt_tracker_view::tracker_plugin::imageCb, this);
+  image_subscriber = it.subscribe(subscribe_topic, 1, &rqt_tracker_view::tracker_plugin::imageCb, this);
   image_publisher = it.advertise("/transformed/images", 1);
   tracker_locations_pub = (nh).advertise<cmt_tracker::Faces>("/tracker/tracking_locations", 10);
   nh.setParam("tracking_method", "handtracking");
@@ -291,6 +290,14 @@ void tracker_plugin::imageCb(const sensor_msgs::ImageConstPtr& msg)
 
           if (!im_gray.empty() && rect.area() > 50)
           {
+            //Now here update the user interface to include what is being tracked. 
+            ui.tracker_output_list->selectAll(); 
+            int selected_items_cout= ui.face_output_list->selectedItems().count(); 
+            std::cout<<"SelectedItems Count"<<std::endl; 
+            auto_emit= selected_items_cout; 
+            //Now set the index of the items. 
+
+
             cmt.push_back(CMT());
             cmt.back().consensus.estimate_rotation = true;
             cmt.back().initialize(im_gray, rect);
@@ -457,23 +464,29 @@ void tracker_plugin::updateVisibleFaces()
   }
 
 //Add to the Tracking in the system.
-  if (hold_var != -1 || auto_emit != -1) //something is selected
+  if (hold_var != -1 || auto_emit > 0) //something is selected
   {
     //Move this to the next time when the GUI is updated.
-    if(auto_emit == -1)
+    if(auto_emit < 0)
     {
     std::cout << "Updating previously selected item: " << hold_var << std::endl;
     //Replace with ability to store all values of a previous.
     QImage qimage = QImage(face_images[hold_var].data, face_images[hold_var].cols, face_images[hold_var].rows,
                            face_images[hold_var].step[0], QImage::Format_RGB888);
     ui.tracker_initial_list->addItem(new QListWidgetItem(QIcon(QPixmap::fromImage(qimage)), "Being Tracked"));
-  }
+    }
   else 
   {
-    //Now this is a new set of images 
+    //Now this is a new set of images
+        std::cout << "Updating previously selected item: " << hold_var << std::endl;
+    //Replace with ability to store all values of a previous.
+    QImage qimage = QImage(face_images[hold_var].data, face_images[hold_var].cols, face_images[hold_var].rows,
+                           face_images[hold_var].step[0], QImage::Format_RGB888);
+    ui.tracker_initial_list->addItem(new QListWidgetItem(QIcon(QPixmap::fromImage(qimage)), "Being Tracked")); 
   }
   }
   hold_var = -1;
+  auto_emit = auto_emit - 1; 
 
 //Visualize the Results of the system.
   int counter_id = 0;
