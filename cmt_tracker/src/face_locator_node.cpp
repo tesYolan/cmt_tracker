@@ -202,6 +202,9 @@ public:
       // Output modified video stream
       // image_pub_.publish(cv_ptr->toImageMsg());
     }
+    else {
+      std::cout<<"Please the location of the haarcascades is not correct."<<std::endl; 
+    }
   }
 
 

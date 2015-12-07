@@ -71,6 +71,7 @@ catkin_python_setup()
    FILES
    Face.msg
    Faces.msg
+   Tracker.msg
  )
 
 ## Generate services in the 'srv' folder

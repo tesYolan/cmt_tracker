@@ -17,15 +17,6 @@
 //The Ui Element Definition
 #include "ui_tracker_plugin.h"
 
-// CMT libraryies
-#include "CMT.h"
-#include "gui.h"
-#ifdef __GNUC__
-#include <getopt.h>
-#else
-#include "getopt/getopt.h"
-#endif
-// CMT Libraries End
 
 //Thread Saftey of the Application
 #include <boost/thread/mutex.hpp>
@@ -97,8 +88,7 @@ protected:
     std::vector<QImage> tracked_image_results;
     std::vector<cv::Mat> tracked_image_mats;
     std::vector<cv::Mat> face_images;
-    std::vector<int> quality_of_tracker;
-    std::vector<cv::Rect> locations_of_trackers; //for setting the tracking to higher levels.
+
 
 
     cv::Mat conversion_mat_;
@@ -107,10 +97,10 @@ protected:
     Ui::tracker_plugin ui;
     QWidget* widget_;
 
-    boost::mutex mat_mutex;
+    
     //Doubling CMT on the running model.
 
-    std::vector<CMT> cmt;
+    
     cv::Rect selected_rect;
     int last_selected_item;
     int hold_var;
