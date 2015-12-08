@@ -74,7 +74,8 @@ class TrackerCMT
   cmt_tracker::Trackers trackers_results;
   std::vector<CMT> cmt;
   std::vector<int> quality_of_tracker;
-
+  std::string tracking_method;
+  
   std::vector<cv::Rect> locations_of_trackers; //for setting the tracking to higher levels.
   std::string subscribe_topic;
 
@@ -197,6 +198,16 @@ public:
       }
     }
 
+
+
+  tracker_results_pub.publish(trackers_results);
+  trackers_results.tracker_results.clear();
+
+  nh_.getParam("tracking_method", tracking_method);
+if(tracking.compare("handtracking") == 1)
+{
+
+  //Initally steps to setup the trackers. 
     if(cmt.size() == 0)
     {
       //First initialize the tracker with the the first face. 
@@ -214,11 +225,9 @@ public:
       }
     }
 
-    //Now let's publish the results of the tracker.
   
+ }
 
-  tracker_results_pub.publish(trackers_results);
-  trackers_results.tracker_results.clear();
 }
 
 void list_of_faces_update(const cmt_tracker::Faces& faces_info)
