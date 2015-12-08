@@ -360,6 +360,7 @@ void tracker_plugin::on_removeAllTracked_clicked()
   else{
     std::cout<<"Not Cleared"<<std::endl; 
   }
+  ui.tracker_initial_list->clear(); 
 }
 /**
  * @brief tracker_plugin::on_removeTracked_clicked

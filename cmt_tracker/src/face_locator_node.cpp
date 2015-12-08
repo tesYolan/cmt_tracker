@@ -148,7 +148,7 @@ public:
         faces_locations.publish(cmt_face_locations);
         cmt_face_locations.faces.clear();
       }
-      else if(tracking.compare("eyes") == 0)
+      else if(tracking.compare("sucessiveMA") == 0)
       {
         ROS_DEBUG("Using Include Eye Results to stand in locations");
         std::cout<<"Eyes Detection: Using"<<std::endl; 
