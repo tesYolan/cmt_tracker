@@ -59,16 +59,16 @@ class TrackerCMT
 
 
   ros::NodeHandle nh_;
-
+  cmt_tracker::Tracker track_location;
   ros::ServiceServer clear_service; 
   image_transport::ImageTransport it_;
   image_transport::Subscriber image_sub_;
   image_transport::Publisher image_pub_;
-
+  ros::Publisher tracker_locations_pub;
   ros::Publisher tracker_results_pub;
   ros::Subscriber face_results;
   ros::Subscriber tracker_subscriber;
-
+  ros::Subscriber face_subscriber;
   cmt_tracker::Tracker tracker_set;
   cmt_tracker::Faces face_locs;
   cmt_tracker::Trackers trackers_results;
@@ -91,7 +91,8 @@ public:
     image_sub_ = it_.subscribe(subscribe_topic, 1, &TrackerCMT::imageCb, this);
     clear_service = nh_.advertiseService("clear", &TrackerCMT::clear, this);
     //To acquire the list of faces currently in track.
-    face_subscriber = (nh).subscribe("face_locations", 1, &list_of_faces_update, this);
+    face_subscriber = (nh_).subscribe("face_locations", 1, &TrackerCMT::list_of_faces_update, this);
+    tracker_locations_pub = (nh_).advertise<cmt_tracker::Tracker>("tracking_locations", 10);
 
     //To acquire commands from this and other nodes to what to set to track.
     tracker_subscriber = (nh_).subscribe("tracking_locations", 1, &TrackerCMT::set_tracker, this);
@@ -199,8 +200,18 @@ public:
     if(cmt.size() == 0)
     {
       //First initialize the tracker with the the first face. 
-      //Here there seems to be a problem with the number of key points initally set make the system hard. 
 
+      //Here there seems to be a problem with the number of key points initally set make the system hard. 
+      for(std::vector<cmt_tracker::Face>::iterator v = face_locs.faces.begin(); v != face_locs.faces.end() ; ++v)
+      {
+  track_location.pixel_lu.x = (*v).pixel_lu.x;
+  track_location.pixel_lu.y = (*v).pixel_lu.y;
+  track_location.width.data = (*v).width.data;
+  track_location.height.data = (*v).height.data;
+  track_location.tracker_name.data = (*v).id.data;
+
+  tracker_locations_pub.publish(track_location);
+      }
     }
 
     //Now let's publish the results of the tracker.

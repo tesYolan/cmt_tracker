@@ -301,22 +301,22 @@ void tracker_plugin::shutdownPlugin()
 
 void tracker_plugin::on_MethodChanged(int index)
 {
-  QString topic = ui.face_choice_method->itemData(ui.face_choice_method->currentIndex());
-  tracking_method = index;
+  // QString topic = ui.face_choice_method->itemData(ui.face_choice_method->currentIndex());
+  // tracking_method = index;
   // std::cout << "The Index is:" << index <<std::endl;
   if (index == 0)
   {
     nh.setParam("tracking_method", "handtracking");
-    first_run_eyes == -1;
+    
   }
   else if (index == 1) {
     nh.setParam("tracking_method", "sucessiveMA");
-    first_run_eyes = 0;
+    
   }
   else
   {
     nh.setParam("tracking_method", "skeleton");
-    first_run_eyes = -1;
+    
   }
 
 }
