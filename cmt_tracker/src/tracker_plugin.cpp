@@ -8,7 +8,7 @@
 #include <ros/master.h>
 #include <ros/ros.h>
 #include <ros/console.h>
-
+#include <cmt_tracker/Clear.h>
 
 #include <cmt_tracker/Face.h>
 #include <cmt_tracker/Faces.h>
@@ -67,7 +67,7 @@ void tracker_plugin::initPlugin(qt_gui_cpp::PluginContext& context)
 
   //This is a publisher to check initally by setting trackers in the rqt plugin.
   tracker_locations_pub = (nh).advertise<cmt_tracker::Tracker>("tracking_locations", 10);
-
+  client = nh.serviceClient<cmt_tracker::Clear>("clear"); 
   //This is subscribed here because of other nodes outside this rqt plugin  set tracker location and thus this extension
   //must show the ability to show different elements in the process.
   tracker_locations_sub = (nh).subscribe("tracking_locations", 10 , &rqt_tracker_view::tracker_plugin::trackerCb, this);
@@ -163,7 +163,7 @@ void tracker_plugin::imageCb(const sensor_msgs::ImageConstPtr& msg)
     else {
       cv::Mat img(100, 100, CV_8UC3);
       img.setTo(cv::Scalar(5));
-      tracked_image_mats.push_back(img.clone()));
+      tracked_image_mats.push_back(img.clone());
       tracked_image_results.push_back(QImage((uchar*) tracked_image_mats.back().data, tracked_image_mats.back().cols, tracked_image_mats.back().rows,
                                              tracked_image_mats.back().step[0], QImage::Format_RGB888));
 
@@ -301,23 +301,23 @@ void tracker_plugin::shutdownPlugin()
 
 void tracker_plugin::on_MethodChanged(int index)
 {
-  // QString topic = ui.face_choice_method->itemData(ui.face_choice_method->currentIndex());
-  // tracking_method = index;
-  // // std::cout << "The Index is:" << index <<std::endl;
-  // if (index == 0)
-  // {
-  //   nh.setParam("tracking_method", "handtracking");
-  //   first_run_eyes == -1;
-  // }
-  // else if (index == 1) {
-  //   nh.setParam("tracking_method", "sucessiveMA");
-  //   first_run_eyes = 0;
-  // }
-  // else
-  // {
-  //   nh.setParam("tracking_method", "skeleton");
-  //   first_run_eyes = -1;
-  // }
+  QString topic = ui.face_choice_method->itemData(ui.face_choice_method->currentIndex());
+  tracking_method = index;
+  // std::cout << "The Index is:" << index <<std::endl;
+  if (index == 0)
+  {
+    nh.setParam("tracking_method", "handtracking");
+    first_run_eyes == -1;
+  }
+  else if (index == 1) {
+    nh.setParam("tracking_method", "sucessiveMA");
+    first_run_eyes = 0;
+  }
+  else
+  {
+    nh.setParam("tracking_method", "skeleton");
+    first_run_eyes = -1;
+  }
 
 }
 /**
@@ -352,6 +352,14 @@ void tracker_plugin::on_removeAllTracked_clicked()
   // ui.tracker_initial_list->clear();
   // ui.tracker_output_list->clear();
   // cmt.clear();
+  cmt_tracker::Clear srv; 
+  if(client.call(srv))
+  {
+    std::cout<<"Cleared"<<std::endl; 
+  }
+  else{
+    std::cout<<"Not Cleared"<<std::endl; 
+  }
 }
 /**
  * @brief tracker_plugin::on_removeTracked_clicked

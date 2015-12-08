@@ -13,6 +13,8 @@
 #include <sensor_msgs/image_encodings.h>
 //#include <sensor_msgs/ImageConstPtr.h>
 
+#include <cmt_tracker/Clear.h>
+
 // CMT libraryies
 #include "CMT.h"
 #include "gui.h"
@@ -22,6 +24,7 @@
 #include "getopt/getopt.h"
 #endif
 // CMT Libraries End
+
 
 /**
 The requirements of the this class:
@@ -45,7 +48,7 @@ How i should proceed is this;
                       3. Evaluate the performance of the system.
 */
 
-using namespace cmt; 
+using namespace cmt;
 class TrackerCMT
 {
 
@@ -57,23 +60,23 @@ class TrackerCMT
 
   ros::NodeHandle nh_;
 
+  ros::ServiceServer clear_service; 
   image_transport::ImageTransport it_;
   image_transport::Subscriber image_sub_;
   image_transport::Publisher image_pub_;
 
   ros::Publisher tracker_results_pub;
   ros::Subscriber face_results;
-  ros::Subscriber tracker_subscriber; 
+  ros::Subscriber tracker_subscriber;
 
   cmt_tracker::Tracker tracker_set;
   cmt_tracker::Faces face_locs;
   cmt_tracker::Trackers trackers_results;
-
   std::vector<CMT> cmt;
   std::vector<int> quality_of_tracker;
 
   std::vector<cv::Rect> locations_of_trackers; //for setting the tracking to higher levels.
-  std::string subscribe_topic; 
+  std::string subscribe_topic;
 
 
   //Parameters for the CMT part of the code.
@@ -86,15 +89,28 @@ public:
 
     //To acquire the image that we will be doing processing on
     image_sub_ = it_.subscribe(subscribe_topic, 1, &TrackerCMT::imageCb, this);
+    clear_service = nh_.advertiseService("clear", &TrackerCMT::clear, this);
+    //To acquire the list of faces currently in track.
+    face_subscriber = (nh).subscribe("face_locations", 1, &list_of_faces_update, this);
 
-    //To acquire the list of faces currently in track. 
-    // face_subscriber = (nh).subscribe("face_locations", 1, &list_of_faces_update, this);
-
-    //To acquire commands from this and other nodes to what to set to track. 
+    //To acquire commands from this and other nodes to what to set to track.
     tracker_subscriber = (nh_).subscribe("tracking_locations", 1, &TrackerCMT::set_tracker, this);
     image_pub_ = it_.advertise("/transformed/images", 1);
     tracker_results_pub = nh_.advertise<cmt_tracker::Trackers>("tracker_results", 10);
 
+  }
+
+  bool clear(cmt_tracker::Clear::Request &req, cmt_tracker::Clear::Response &res)
+  {
+    cmt.clear(); 
+    if(cmt.size() == 0)
+    {
+      // res.clear= true; 
+    }
+    else{
+      // res.clear = false;
+    }
+    return true; 
   }
   /*
   This  function is a callback fucntion that happens when an image update occurs.
@@ -138,118 +154,129 @@ public:
     //Do convert the image to gray scale as it's don't multiple times across other functions in the system.
 
 
-      cv::cvtColor(conversion_mat_, frame_gray, CV_BGR2GRAY);
+    cv::cvtColor(conversion_mat_, frame_gray, CV_BGR2GRAY);
 
-        cv::Mat im_gray = frame_gray.clone();
-    std::cout<<"The number of tracker active is: "<<cmt.size()<<std::endl; 
-    
+    cv::Mat im_gray = frame_gray.clone();
+    std::cout << "The number of tracker active is: " << cmt.size() << std::endl;
+
     for (std::vector<CMT>::iterator v = cmt.begin(); v != cmt.end(); ++v)
     {
       //Clear all the previous results relating to the tracker.
       cmt_tracker::Tracker tracker;
       if ((*v).initialized == true && !im_gray.empty())
       {
-      (*v).processFrame(im_gray);
-      cv::Rect rect = (*v).bb_rot.boundingRect();
-      FILE_LOG(logDEBUG) << "Area ouptut is: "<<rect.area();
-      tracker.pixel_lu.x = rect.x;
-      tracker.pixel_lu.y = rect.y;
-      tracker.pixel_lu.z = 0;
-
-      tracker.width.data = rect.width;
-      tracker.height.data = rect.height;
-      tracker.inital_points.data = (*v).num_initial_keypoints;
-      tracker.active_points.data= (*v).num_active_keypoints;  
-      tracker.tracker_name.data = (*v).name;
+        (*v).processFrame(im_gray);
+        cv::Rect rect = (*v).bb_rot.boundingRect();
+        FILE_LOG(logDEBUG) << "Area ouptut is: " << rect.area();
+        rect = rect & cv::Rect(0, 0, im_gray.size().width, im_gray.size().height);
+        tracker.pixel_lu.x = rect.x;
+        tracker.pixel_lu.y = rect.y;
+        tracker.pixel_lu.z = 0;
 
 
-      if(rect.area() > 50)
-      {
-        if ( 0 <= rect.x && 0 <= rect.width && rect.x + rect.width <= im_gray.cols && 0 <= rect.y && 0 <= rect.height && rect.y + rect.height <= im_gray.rows)
+        FILE_LOG(logDEBUG) << "Returned results with key point: " << cmt.back().num_active_keypoints;
+
+
+        tracker.width.data = rect.width;
+        tracker.height.data = rect.height;
+        tracker.inital_points.data = (*v).num_initial_keypoints;
+        tracker.active_points.data = (*v).num_active_keypoints;
+        tracker.tracker_name.data = (*v).name;
+
+        if (tracker.active_points.data > tracker.inital_points.data / 5)
         {
-
-      FILE_LOG(logDEBUG) <<"Returned results with key point: "<<cmt.back().num_active_keypoints;
-      tracker.quality_results.data = true; 
-      trackers_results.tracker_results.push_back(tracker);
-    }
-    else {
-      FILE_LOG(logDEBUG) <<"No suitable result"; 
-      tracker.quality_results.data = false; 
-      trackers_results.tracker_results.push_back(tracker); 
-    }
+          FILE_LOG(logDEBUG) << "No suitable result";
+          tracker.quality_results.data = true;
+          trackers_results.tracker_results.push_back(tracker);
+        }
+        else {
+          tracker.quality_results.data = false;
+          trackers_results.tracker_results.push_back(tracker);
+        }
       }
-      }
-
-      //Now let's publish the results of the tracker.
     }
-    cv::Mat area_tobe;  
 
-    // for (int i = 0 ; i < trackers_results.tracker_results.size(); i++)
-    // {
-    // area_tobe= im_gray(cv::Rect(trackers_results.tracker_results[i].pixel_lu.x,trackers_results.tracker_results[i].pixel_lu.y, 
-    //   trackers_results.tracker_results[i].width.data, trackers_results.tracker_results[i].height.data )).clone(); 
-    // cv::imshow("i", area_tobe ); 
-    // cv::waitKey(3);
-    // }
-    tracker_results_pub.publish(trackers_results); 
-    trackers_results.tracker_results.clear(); 
-  }
+    if(cmt.size() == 0)
+    {
+      //First initialize the tracker with the the first face. 
+      //Here there seems to be a problem with the number of key points initally set make the system hard. 
 
-  void set_tracker(const cmt_tracker::Tracker& tracker_location)
+    }
+
+    //Now let's publish the results of the tracker.
+  
+
+  tracker_results_pub.publish(trackers_results);
+  trackers_results.tracker_results.clear();
+}
+
+void list_of_faces_update(const cmt_tracker::Faces& faces_info)
+{
+  ROS_DEBUG("It get's here in the faces update");
+  face_locs.faces.clear();
+  //May be better to use an iterator to handle the function.
+  for (int i = 0; i < faces_info.faces.size(); i++)
   {
-    //A potentially high penality task is done here but it's to avoid latter dealing with uncorrectly set trackers.
-
-    FILE_LOG(logDEBUG) << "Initalizing Started ";
-    cv::Mat im_gray = frame_gray.clone(); //To avoid change when being run.
-    cv::Rect rect(tracker_location.pixel_lu.x, tracker_location.pixel_lu.y, tracker_location.width.data, tracker_location.height.data );
-    if (!im_gray.empty() && rect.area() > 50)
-    {
-      //Now there must be some way to hold back setting up new tracker;
-      cmt.push_back(CMT());
-      cmt.back().consensus.estimate_rotation = true;
-      std::string tracker_name = "Tracker : " + tracker_location.tracker_name.data ; 
-      cmt.back().initialize(im_gray, rect, tracker_name);
-      FILE_LOG(logDEBUG) <<"initialized with intial key point: "<<cmt.back().num_initial_keypoints;
-    }
-    else
-    {
-      FILE_LOG(logDEBUG) <<"Not initialized";
-      // std::cout << "Not initialized" << std::endl;
-    }
+    face_locs.faces.push_back(faces_info.faces[i]);
+  }
+}
 
 
+void set_tracker(const cmt_tracker::Tracker& tracker_location)
+{
+  //A potentially high penality task is done here but it's to avoid latter dealing with uncorrectly set trackers.
+
+  FILE_LOG(logDEBUG) << "Initalizing Started ";
+  cv::Mat im_gray = frame_gray.clone(); //To avoid change when being run.
+  cv::Rect rect(tracker_location.pixel_lu.x, tracker_location.pixel_lu.y, tracker_location.width.data, tracker_location.height.data );
+  if (!im_gray.empty() && rect.area() > 50)
+  {
+    //Now there must be some way to hold back setting up new tracker;
+    cmt.push_back(CMT());
+    cmt.back().consensus.estimate_rotation = true;
+    std::string tracker_name = "Tracker : " + tracker_location.tracker_name.data ;
+    cmt.back().initialize(im_gray, rect, tracker_name);
+    FILE_LOG(logDEBUG) << "initialized with intial key point: " << cmt.back().num_initial_keypoints;
+  }
+  else
+  {
+    FILE_LOG(logDEBUG) << "Not initialized";
+    // std::cout << "Not initialized" << std::endl;
   }
 
-  // void process()
-  // {
-  //   std::cout << "Entered Processing" << std::endl;
-  //   cv::Mat im_gray = frame_gray().clone();
-  //   for (std::vector<CMT>::iterator v = cmt.begin(); v != cmt.end(); ++v)
-  //   {
-  //     //Clear all the previous results relating to the tracker.
-  //     (*v).processFrame(im_gray);
-  //     cv::Rect rect = (*v).bb_rot.boundingRect();
-  //     cmt_tracker::Tracker tracker;
-  //     tracker.pixel_lu.x = rect.x;
-  //     tracker.pixel_lu.y = rect.y;
-  //     tracker.pixel_lu.z = 0;
 
-  //     tracker.width.data = rect.width;
-  //     tracker.height.data = rect.height;
+}
 
-  //     tracker.name.data = (*v).name;
+// void process()
+// {
+//   std::cout << "Entered Processing" << std::endl;
+//   cv::Mat im_gray = frame_gray().clone();
+//   for (std::vector<CMT>::iterator v = cmt.begin(); v != cmt.end(); ++v)
+//   {
+//     //Clear all the previous results relating to the tracker.
+//     (*v).processFrame(im_gray);
+//     cv::Rect rect = (*v).bb_rot.boundingRect();
+//     cmt_tracker::Tracker tracker;
+//     tracker.pixel_lu.x = rect.x;
+//     tracker.pixel_lu.y = rect.y;
+//     tracker.pixel_lu.z = 0;
 
-  //     trackers_results.tracker_results.push_back(tracker);
+//     tracker.width.data = rect.width;
+//     tracker.height.data = rect.height;
 
-  //     //Now let's publish the results of the tracker.
-  //   }
-  //   tracker_results_pub.publish(trackers_results); 
-  //   //This is a fucniton that performs that does the elements. 
+//     tracker.name.data = (*v).name;
 
-  //   std::cout<<"Outputed results of processing"<<std::endl; 
-  //   //Now publish the results of the tracking.
+//     trackers_results.tracker_results.push_back(tracker);
 
-  // }
+//     //Now let's publish the results of the tracker.
+//   }
+//   tracker_results_pub.publish(trackers_results);
+//   //This is a fucniton that performs that does the elements.
+
+//   std::cout<<"Outputed results of processing"<<std::endl;
+//   //Now publish the results of the tracking.
+
+// }
 
 };
 
