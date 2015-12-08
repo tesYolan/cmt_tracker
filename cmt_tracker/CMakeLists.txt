@@ -18,8 +18,8 @@ find_package(Qt4 COMPONENTS QtCore QtGui REQUIRED)
 include(${QT_USE_FILE})
 
 
-get_target_property(QtCore_location Qt5::Core LOCATION)
-get_target_property(QtGui_location Qt5::Gui LOCATION)
+#get_target_property(QtCore_location Qt5::Core LOCATION)
+#get_target_property(QtGui_location Qt5::Gui LOCATION)
 #include(${QT_USE_FILE})
 
 set(tracker_plugin_SRCS
@@ -72,6 +72,7 @@ catkin_python_setup()
    Face.msg
    Faces.msg
    Tracker.msg
+   Trackers.msg
  )
 
 ## Generate services in the 'srv' folder
@@ -162,9 +163,11 @@ add_executable(face_locator_node src/face_locator_node.cpp)
  target_link_libraries(face_locator_node
    ${catkin_LIBRARIES} ${OpenCV_LIBS}
  )
+add_executable(cmt_tracker_node src/cmt_tracker_node.cpp)
+target_link_libraries(cmt_tracker_node ${catkin_LIBRARIES} ${OpenCV_LIBS} cmt)
 include_directories(${tracker_plugin_INCLUDE_DIRECTORIES} ${catkin_INCLUDE_DIRS})
 add_library(${PROJECT_NAME} ${tracker_plugin_SRCS} ${tracker_plugin_MOCS} ${tracker_plugin_UIS_H})
-target_link_libraries(${PROJECT_NAME} cmt ${catkin_LIBRARIES} ${QT_QTCORE_LIBRARY} ${QT_QTGUI_LIBRARY} ${OpenCV_LIBS})
+target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES} ${QT_QTCORE_LIBRARY} ${QT_QTGUI_LIBRARY} ${OpenCV_LIBS})
 find_package(class_loader)
 class_loader_hide_library_symbols(${PROJECT_NAME})
 ## Add cmake target dependencies of the executable

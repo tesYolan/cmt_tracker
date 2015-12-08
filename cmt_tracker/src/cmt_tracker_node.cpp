@@ -1,8 +1,12 @@
 //This is the base file that will handle all the relevant part of processing
 #include <cmt_tracker/Tracker.h>
+#include <cmt_tracker/Trackers.h>
 #include <cmt_tracker/Face.h>
 #include <cmt_tracker/Faces.h>
-
+#include <opencv2/core/core.hpp>
+#include <opencv2/objdetect/objdetect.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/highgui/highgui.hpp>
 #include <image_transport/image_transport.h>
 #include <sensor_msgs/Image.h>
 #include <cv_bridge/cv_bridge.h>
@@ -18,7 +22,6 @@
 #include "getopt/getopt.h"
 #endif
 // CMT Libraries End
-#include <cmt_tracker/Faces.h>
 
 /**
 The requirements of the this class:
@@ -41,6 +44,8 @@ How i should proceed is this;
                       2. Make a detailed description of the output to rely to the other system.
                       3. Evaluate the performance of the system.
 */
+
+using namespace cmt; 
 class TrackerCMT
 {
 
@@ -58,6 +63,7 @@ class TrackerCMT
 
   ros::Publisher tracker_results_pub;
   ros::Subscriber face_results;
+  ros::Subscriber tracker_subscriber; 
 
   cmt_tracker::Tracker tracker_set;
   cmt_tracker::Faces face_locs;
@@ -67,6 +73,7 @@ class TrackerCMT
   std::vector<int> quality_of_tracker;
 
   std::vector<cv::Rect> locations_of_trackers; //for setting the tracking to higher levels.
+  std::string subscribe_topic; 
 
 
   //Parameters for the CMT part of the code.
@@ -76,9 +83,15 @@ public:
     //Here lies the essential parameters that we would set up to track the files.
     //Initally till things get to function pretty well let's do this nothing. Just subscribe to the images and publishing topics.
     nh_.getParam("camera_topic", subscribe_topic);
+
+    //To acquire the image that we will be doing processing on
     image_sub_ = it_.subscribe(subscribe_topic, 1, &TrackerCMT::imageCb, this);
-    face_subscriber = (nh).subscribe("face_locations", 1, &list_of_faces_update, this);
-    tracker_subscriber = (nh).subscribe("track_locations", 1, &set_tracker, this);
+
+    //To acquire the list of faces currently in track. 
+    // face_subscriber = (nh).subscribe("face_locations", 1, &list_of_faces_update, this);
+
+    //To acquire commands from this and other nodes to what to set to track. 
+    tracker_subscriber = (nh_).subscribe("tracking_locations", 1, &TrackerCMT::set_tracker, this);
     image_pub_ = it_.advertise("/transformed/images", 1);
     tracker_results_pub = nh_.advertise<cmt_tracker::Trackers>("tracker_results", 10);
 
@@ -123,14 +136,47 @@ public:
       }
     }
     //Do convert the image to gray scale as it's don't multiple times across other functions in the system.
-    cv::cvtColor(conversion_mat_, frame_gray, cv::COLOR_BGR2GRAY);
+
+
+      cv::cvtColor(conversion_mat_, frame_gray, CV_BGR2GRAY);
+
+        // cv::Mat im_gray = frame_gray().clone();
+    std::cout<<"The number of tracker active is: "<<cmt.size()<<std::endl; 
+    
+    for (std::vector<CMT>::iterator v = cmt.begin(); v != cmt.end(); ++v)
+    {
+      //Clear all the previous results relating to the tracker.
+      cmt_tracker::Tracker tracker;
+      if ((*v).initialized == true)
+      {
+      (*v).processFrame(frame_gray);
+      cv::Rect rect = (*v).bb_rot.boundingRect();
+      
+      tracker.pixel_lu.x = rect.x;
+      tracker.pixel_lu.y = rect.y;
+      tracker.pixel_lu.z = 0;
+
+      tracker.width.data = rect.width;
+      tracker.height.data = rect.height;
+
+      tracker.tracker_name.data = (*v).name;
+
+      if(rect.area() > 50)
+      trackers_results.tracker_results.push_back(tracker);
+
+      }
+
+      //Now let's publish the results of the tracker.
+    }
+    tracker_results_pub.publish(trackers_results); 
+    trackers_results.tracker_results.clear(); 
   }
 
   void set_tracker(const cmt_tracker::Tracker& tracker_location)
   {
     //A potentially high penality task is done here but it's to avoid latter dealing with uncorrectly set trackers.
 
-    std::cout << "Initalizing tracker with values" << std::endl;
+    ROS_DEBUG("Intialization started"); 
     cv::Mat im_gray = frame_gray.clone(); //To avoid change when being run.
     cv::Rect rect(tracker_location.pixel_lu.x, tracker_location.pixel_lu.y, tracker_location.width.data, tracker_location.height.data );
     if (!im_gray.empty() && rect.area() > 50)
@@ -139,56 +185,48 @@ public:
       cmt.push_back(CMT());
       cmt.back().consensus.estimate_rotation = true;
       cmt.back().initialize(im_gray, rect, tracker_location.tracker_name.data);
+      ROS_DEBUG("Initalizing done correctly"); 
     }
     else
     {
-      std::cout << "Not initialized" << std::endl;
+      ROS_DEBUG("Not initialized"); 
+      // std::cout << "Not initialized" << std::endl;
     }
-    std::cout << "Initalizing Done in the system. " << std::endl;
+
+    
 
   }
 
-  void process()
-  {
-    std::cout << "Entered Processing" << std::endl;
-    cv::Mat im_gray = frame_gray().clone();
-    for (std::vector<CMT>::iterator v = cmt.begin(); v != cmt.end(); ++v)
-    {
-      //Clear all the previous results relating to the tracker.
-      (*v).processFrame(im_gray);
-      cv::Rect rect = (*v).bb_rot.boundingRect();
-      cmt_tracker::Tracker tracker;
-      tracker.pixel_lu.x = rect.x;
-      tracker.pixel_lu.y = rect.y;
-      tracker.pixel_lu.z = 0;
+  // void process()
+  // {
+  //   std::cout << "Entered Processing" << std::endl;
+  //   cv::Mat im_gray = frame_gray().clone();
+  //   for (std::vector<CMT>::iterator v = cmt.begin(); v != cmt.end(); ++v)
+  //   {
+  //     //Clear all the previous results relating to the tracker.
+  //     (*v).processFrame(im_gray);
+  //     cv::Rect rect = (*v).bb_rot.boundingRect();
+  //     cmt_tracker::Tracker tracker;
+  //     tracker.pixel_lu.x = rect.x;
+  //     tracker.pixel_lu.y = rect.y;
+  //     tracker.pixel_lu.z = 0;
 
-      tracker.width.data = rect.width;
-      tracker.height.data = rect.height;
+  //     tracker.width.data = rect.width;
+  //     tracker.height.data = rect.height;
 
-      tracker.name.data = (*v).name;
+  //     tracker.name.data = (*v).name;
 
-      trackers_results.tracker_results.push_back(tracker);
+  //     trackers_results.tracker_results.push_back(tracker);
 
-      //Now let's publish the results of the tracker.
-    }
-    tracker_results_pub.publish(trackers_results); 
-    //This is a fucniton that performs that does the elements. 
+  //     //Now let's publish the results of the tracker.
+  //   }
+  //   tracker_results_pub.publish(trackers_results); 
+  //   //This is a fucniton that performs that does the elements. 
 
-    std::cout<<"Outputed results of processing"<<std::endl; 
-    //Now publish the results of the tracking.
+  //   std::cout<<"Outputed results of processing"<<std::endl; 
+  //   //Now publish the results of the tracking.
 
-  }
-
-  void rules()
-  {
-
-  }
-
-  virtual void spinOnce ()
-  {
-    process()
-    spinOnce();
-  }
+  // }
 
 };
 
@@ -196,6 +234,6 @@ int main(int argc, char** argv)
 {
   ros::init(argc, argv, "cmt_tracker");
   TrackerCMT ic;
-  ic.spin();
+  ros::spin();
   return 0;
 }

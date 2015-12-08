@@ -13,5 +13,5 @@ def add_arguments(parser):
 main = Main()
 sys.exit(main.main(
     sys.argv,
-    standalone='rqt_tracker_view/tracker_plugin',
+    standalone='rqt_tracker_view',
     plugin_argument_provider=add_arguments))

@@ -13,17 +13,14 @@
 #include <cv_bridge/cv_bridge.h>
 #include <sensor_msgs/image_encodings.h>
 #include <cmt_tracker/Faces.h>
+#include <cmt_tracker/Tracker.h>
+#include <cmt_tracker/Trackers.h>
 #include <vector>
 //The Ui Element Definition
 #include "ui_tracker_plugin.h"
 
 
-//Thread Saftey of the Application
-#include <boost/thread/mutex.hpp>
-#include <boost/thread/thread.hpp>
 
-
-using cmt::CMT;
 namespace rqt_tracker_view {
 class tracker_plugin
     : public rqt_gui_cpp::Plugin
@@ -32,28 +29,26 @@ class tracker_plugin
 
 public:
     //To hold last value of face_locs;
-    cv::CascadeClassifier face_cascade;
-    cv::CascadeClassifier eyes_cascade;
-    std::vector<cv::Rect> candidate_faces; 
-    std::vector<cv::Rect> candidates_eyes; 
-    bool setup; 
     cmt_tracker::Faces face_locs;
-    cmt_tracker::Faces tracker_locations;
-    //Subscribers for location of faces and the image_subscriber
+    cmt_tracker::Tracker track_location;
+    cmt_tracker::Tracker track_published;
+    cmt_tracker::Trackers tracking_results; 
+    // cmt_tracker::Faces tracker_locations;
+    // //Subscribers for location of faces and the image_subscriber
     ros::Publisher tracker_locations_pub;
+    ros::Subscriber tracker_locations_sub;
     ros::Subscriber face_subscriber;
+    ros::Subscriber tracked_locations; 
     image_transport::Subscriber image_subscriber;
-    image_transport::Publisher image_publisher;
-    sensor_msgs::ImagePtr image_published;
-    std::string subscribe_topic; 
-    //Nodehandle from the rqt plugin.
+    // image_transport::Publisher image_publisher;
+    // sensor_msgs::ImagePtr image_published;
+    // std::string subscribe_topic;
+    // //Nodehandle from the rqt plugin.
     ros::NodeHandle nh;
 
     //Constructor.
     tracker_plugin();
 
-    void handbasedtracking_rules();
-    void eyesbasedtracking_rules();
 
     //Plugin Implementation.
     virtual void initPlugin(qt_gui_cpp::PluginContext& context);
@@ -82,32 +77,32 @@ protected slots:
 
     void imageCb(const sensor_msgs::ImageConstPtr& msg);
 
+    void trackerCb(const cmt_tracker::Tracker& tracker_locs);
+
+    void tracker_resultsCb(const cmt_tracker::Trackers& tracker_results); 
+
 protected:
-    std::vector<QImage> face_image;
-    std::vector<QImage> qmap;
+    std::vector<QImage> face_images;
+    std::vector<QImage> tracked_faces;
+    // std::vector<QImage> qmap;
     std::vector<QImage> tracked_image_results;
     std::vector<cv::Mat> tracked_image_mats;
-    std::vector<cv::Mat> face_images;
+    std::vector<cv::Mat> mat_images;
+    std::vector<cv::Mat> tracked_images;
 
 
-
+    std::string subscribe_topic;
     cv::Mat conversion_mat_;
-    cv::Mat im_gray;
-    cv::Mat conversion_mat_previous;
+    // cv::Mat im_gray;
+    // cv::Mat conversion_mat_previous;
     Ui::tracker_plugin ui;
     QWidget* widget_;
+    bool tracker_updated;
+    bool tracking_results_updated; 
 
-    
+
     //Doubling CMT on the running model.
 
-    
-    cv::Rect selected_rect;
-    int last_selected_item;
-    int hold_var;
-    int frame;
-    int tracking_method;
-    int first_run_eyes;
-    int auto_emit; 
 };
 }
 #endif // TRACKER_PLUGIN_H

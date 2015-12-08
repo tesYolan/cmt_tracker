@@ -16,7 +16,7 @@
 #include <iostream>
 #include <sstream>
 
-#define SSTR( x ) dynamic_cast< std::ostringstream & >(( std::ostringstream() << std::dec << x ) ).str()
+// #define SSTR( x ) dynamic_cast< std::ostringstream & >(( std::ostringstream() << std::dec << x ) ).str()
 
 namespace rqt_tracker_view {
 
@@ -37,7 +37,7 @@ void tracker_plugin::initPlugin(qt_gui_cpp::PluginContext& context)
 
   if (context.serialNumber() > 1)
   {
-    widget_->setWindowTitle(widget_->windowTitle() + " (" + QString::number(context.serialNumber()) + ")");
+    // widget_->setWindowTitle(widget_->windowTitle() + " (" + QString::number(context.serialNumber()) + ")");
     // widget_->setWindowTitle("Tray's ")
   }
   context.addWidget(widget_);
@@ -51,27 +51,26 @@ void tracker_plugin::initPlugin(qt_gui_cpp::PluginContext& context)
   also if the person has given in the parameters that are run with the script that is running then we would be able to run the system.
   */
 
-  last_selected_item = -1;
-  frame = 0;
+
+  // frame = 0;
+  tracker_updated = false;
+  tracking_results_updated = false;
   ui.face_choice_method->addItem("Hand Slection Trackings");
-  tracking_method = 0;
-  ui.face_choice_method->addItem("Eyes and Shadowning");
-  first_run_eyes = -1;
-  ui.face_choice_method->addItem("Skeleton Based Tracking");
-
-//Get a nodehandle to subscribe to nodes;
-
-//Declare Subscribers here;
-// nh = getNodeHandle();
-  if ( !face_cascade.load("/usr/share/opencv/haarcascades/haarcascade_frontalface_alt.xml" ) || !eyes_cascade.load("/usr/share/opencv/haarcascades/haarcascade_eye_tree_eyeglasses.xml" ))
-  { setup = false;  };
-  setup = true;
+  ui.face_choice_method->addItem("Eyes and Consecutive Average");
+  ui.face_choice_method->addItem("Static Descriptors Matching");
+  image_transport::ImageTransport it(nh);
   nh.getParam("camera_topic", subscribe_topic);
   face_subscriber = (nh).subscribe("face_locations", 1, &rqt_tracker_view::tracker_plugin::list_of_faces_update, this);
-  image_transport::ImageTransport it(nh);
   image_subscriber = it.subscribe(subscribe_topic, 1, &rqt_tracker_view::tracker_plugin::imageCb, this);
-  image_publisher = it.advertise("/transformed/images", 1);
-  tracker_locations_pub = (nh).advertise<cmt_tracker::Faces>("/tracker/tracking_locations", 10);
+  tracked_locations = nh.subscribe("tracker_results", 10 ,&rqt_tracker_view::tracker_plugin::tracker_resultsCb, this);
+                      // // image_publisher = it.advertise("/transformed/images", 1);
+
+                      //This is a publisher to check initally by setting trackers in the rqt plugin.
+                      tracker_locations_pub = (nh).advertise<cmt_tracker::Tracker>("tracking_locations", 10);
+
+  //This is subscribed here because of other nodes outside this rqt plugin  set tracker location and thus this extension
+  //must show the ability to show different elements in the process.
+  tracker_locations_sub = (nh).subscribe("tracking_locations", 10 , &rqt_tracker_view::tracker_plugin::trackerCb, this);
   nh.setParam("tracking_method", "handtracking");
   connect(ui.face_choice_method, SIGNAL(currentIndexChanged(int)), this, SLOT(on_MethodChanged(int)));
   connect(ui.face_output_list, SIGNAL(itemPressed(QListWidgetItem *)), this, SLOT(on_addToTrack_clicked(QListWidgetItem *)));
@@ -125,9 +124,38 @@ void tracker_plugin::imageCb(const sensor_msgs::ImageConstPtr& msg)
       return;
     }
   }
-//now here do all the processing. 
-  
+  //now update the results of the elements in the GUI thread. It's done here because the GUI thread and the call back thread
+  //are two different entities and since ros::spin() handles (unless specified otherwise) callbacks serially it's best to
+  //get the data's here sequentially.
+  mat_images.clear();
+  face_images.clear();
+  for (std::vector<cmt_tracker::Face>::iterator v = face_locs.faces.begin(); v != face_locs.faces.end() ; ++v)
+  {
+    mat_images.push_back(conversion_mat_(cv::Rect((*v).pixel_lu.x, (*v).pixel_lu.y, (*v).width.data, (*v).height.data)).clone());
+    face_images.push_back(QImage((uchar*) mat_images.back().data, mat_images.back().cols, mat_images.back().rows,
+                                 mat_images.back().step[0], QImage::Format_RGB888));
+  }
 
+  //The logic for subscribed works like this; (if there has been change in the value then we add it to the list other wise we let it be)
+
+  if (tracker_updated)
+  {
+    tracked_images.push_back(conversion_mat_(cv::Rect(track_published.pixel_lu.x, track_published.pixel_lu.y, track_published.width.data,
+                             track_published.height.data)).clone());
+    tracked_faces.push_back(QImage((uchar*) tracked_images.back().data, tracked_images.back().cols, tracked_images.back().rows,
+                                   tracked_images.back().step[0], QImage::Format_RGB888));
+  }
+  tracked_image_mats.clear();
+  tracked_image_results.clear();
+
+    for (std::vector<cmt_tracker::Tracker>::iterator v = tracking_results.tracker_results.begin(); v != tracking_results.tracker_results.end() ; ++v)
+    {
+      tracked_image_mats.push_back(conversion_mat_(cv::Rect((*v).pixel_lu.x, (*v).pixel_lu.y, (*v).width.data, (*v).height.data)).clone());
+      tracked_image_results.push_back(QImage((uchar*) tracked_image_mats.back().data, tracked_image_mats.back().cols, tracked_image_mats.back().rows,
+                                             tracked_image_mats.back().step[0], QImage::Format_RGB888));
+    }
+  
+  emit updatefacelist();
 }
 
 /**
@@ -135,55 +163,76 @@ This function is the one that update hte UI of all things related to the system.
 */
 void tracker_plugin::updateVisibleFaces()
 {
+  ui.face_output_list->clear();
+  ui.tracker_output_list->clear(); 
 
 //Update the Faces List.
-  ui.face_output_list->clear();
-  ui.tracker_output_list->clear();
+
   // ui.tracker_output_list->clear();
-  int counter_name = 0;
-  for (std::vector<QImage>::iterator it = qmap.begin(); it != qmap.end(); ++it)
+  // ui.tracker_output_list->clear();
+  // int counter_name = 0;
+  // for (std::vector<QImage>::iterator it = qmap.begin(); it != qmap.end(); ++it)
+  // {
+  //   //Update the Face ID with a complete description of the face()
+  //   // ui.face_output_list->addItem(new QListWidgetItem(QIcon(QPixmap::fromImage(*it)), QString::number(face_locs.faces[counter_name].id.data)));
+  //   counter_name++;
+  // }
+  for (std::vector<QImage>::iterator v = face_images.begin(); v != face_images.end(); ++v)
   {
-    //Update the Face ID with a complete description of the face()
-    ui.face_output_list->addItem(new QListWidgetItem(QIcon(QPixmap::fromImage(*it)), QString::number(face_locs.faces[counter_name].id.data)));
-    counter_name++;
+    ui.face_output_list->addItem(new QListWidgetItem(QIcon(QPixmap::fromImage(*v)), "Faces"));
   }
 
-//Add to the Tracking in the system.
-  if (hold_var != -1 || auto_emit > 0) //something is selected
+  //Update the last element to the list
+  if (tracker_updated)
   {
-    //Move this to the next time when the GUI is updated.
-    if (auto_emit < 0)
-    {
-      std::cout << "Updating previously selected item: " << hold_var << std::endl;
-      //Replace with ability to store all values of a previous.
-      QImage qimage = QImage(face_images[hold_var].data, face_images[hold_var].cols, face_images[hold_var].rows,
-                             face_images[hold_var].step[0], QImage::Format_RGB888);
-      ui.tracker_initial_list->addItem(new QListWidgetItem(QIcon(QPixmap::fromImage(qimage)), "Being Tracked"));
-    }
-    else
-    {
-      //Now this is a new set of images
-      std::cout << "Updating previously selected item: " << hold_var << std::endl;
-      //Replace with ability to store all values of a previous.
-      QImage qimage = QImage(face_images[hold_var].data, face_images[hold_var].cols, face_images[hold_var].rows,
-                             face_images[hold_var].step[0], QImage::Format_RGB888);
-      ui.tracker_initial_list->addItem(new QListWidgetItem(QIcon(QPixmap::fromImage(qimage)), "Being Tracked"));
-    }
+    ui.tracker_initial_list->addItem(new QListWidgetItem(QIcon(QPixmap::fromImage(tracked_faces.back())), "Initial"));
   }
-  hold_var = -1;
-  auto_emit = auto_emit - 1;
-
-//Visualize the Results of the system.
-  int counter_id = 0;
+  tracker_updated = false;
 
 
-  for (std::vector<QImage>::iterator it = tracked_image_results.begin(); it != tracked_image_results.end(); ++it)
+    for (std::vector<QImage>::iterator v = tracked_image_results.begin(); v != tracked_image_results.end(); ++v)
   {
-    ui.tracker_output_list->addItem(new QListWidgetItem(QIcon(QPixmap::fromImage(*it)),  QString::number(counter_id)));
-    counter_id++;
+    ui.tracker_output_list->addItem(new QListWidgetItem(QIcon(QPixmap::fromImage(*v)), "Tracking Results"));
   }
 
-  ros::Rate rate(1);
+
+
+// //Add to the Tracking in the system.
+//   if (hold_var != -1 || auto_emit > 0) //something is selected
+//   {
+//     //Move this to the next time when the GUI is updated.
+//     if (auto_emit < 0)
+//     {
+//       std::cout << "Updating previously selected item: " << hold_var << std::endl;
+//       //Replace with ability to store all values of a previous.
+//       QImage qimage = QImage(face_images[hold_var].data, face_images[hold_var].cols, face_images[hold_var].rows,
+//                              face_images[hold_var].step[0], QImage::Format_RGB888);
+//       ui.tracker_initial_list->addItem(new QListWidgetItem(QIcon(QPixmap::fromImage(qimage)), "Being Tracked"));
+//     }
+//     else
+//     {
+//       //Now this is a new set of images
+//       std::cout << "Updating previously selected item: " << hold_var << std::endl;
+//       //Replace with ability to store all values of a previous.
+//       QImage qimage = QImage(face_images[hold_var].data, face_images[hold_var].cols, face_images[hold_var].rows,
+//                              face_images[hold_var].step[0], QImage::Format_RGB888);
+//       ui.tracker_initial_list->addItem(new QListWidgetItem(QIcon(QPixmap::fromImage(qimage)), "Being Tracked"));
+//     }
+//   }
+//   hold_var = -1;
+//   auto_emit = auto_emit - 1;
+
+// //Visualize the Results of the system.
+//   int counter_id = 0;
+
+
+//   for (std::vector<QImage>::iterator it = tracked_image_results.begin(); it != tracked_image_results.end(); ++it)
+//   {
+//     ui.tracker_output_list->addItem(new QListWidgetItem(QIcon(QPixmap::fromImage(*it)),  QString::number(counter_id)));
+//     counter_id++;
+//   }
+
+  // ros::Rate rate(1);
 
 }
 
@@ -196,14 +245,35 @@ The one is the one that update the value of the funciton .
 void tracker_plugin::list_of_faces_update(const cmt_tracker::Faces& faces_info)
 {
   ROS_DEBUG("It get's here in the faces update");
-//This doesn't directly update the list of faces but sets the value of the faces in the cmt_tracker::Faces when
-  //ever the next image comes whihc is handled by hte imageCb fucntion above.
-  tracker_plugin::face_locs.faces.clear();
+  face_locs.faces.clear();
   //May be better to use an iterator to handle the function.
   for (int i = 0; i < faces_info.faces.size(); i++)
   {
     face_locs.faces.push_back(faces_info.faces[i]);
   }
+}
+
+void tracker_plugin::trackerCb(const cmt_tracker::Tracker& tracker_locs)
+{
+  //track_published = tracker_locs;
+  track_published.pixel_lu.x = tracker_locs.pixel_lu.x;
+  track_published.pixel_lu.y = tracker_locs.pixel_lu.y;
+  track_published.width.data = tracker_locs.width.data;
+  track_published.height.data = tracker_locs.height.data;
+  track_published.tracker_name.data = tracker_locs.tracker_name.data;
+
+  tracker_updated = true;
+}
+void tracker_plugin::tracker_resultsCb(const cmt_tracker::Trackers& tracker_results)
+{
+  //Check whether this is invalided when the loop exits.
+  // = tracker_results;
+  tracking_results.tracker_results.clear(); 
+  for (int i = 0; i < tracker_results.tracker_results.size(); i++)
+  {
+    tracking_results.tracker_results.push_back(tracker_results.tracker_results[i]);
+  }
+  tracking_results_updated = true;
 }
 
 void tracker_plugin::shutdownPlugin()
@@ -216,25 +286,22 @@ void tracker_plugin::shutdownPlugin()
 void tracker_plugin::on_MethodChanged(int index)
 {
   // QString topic = ui.face_choice_method->itemData(ui.face_choice_method->currentIndex());
-  tracking_method = index;
-  // std::cout << "The Index is:" << index <<std::endl;
-  if (index == 0)
-  {
-    nh.setParam("tracking_method", "handtracking");
-    first_run_eyes == -1;
-  }
-  else if (index == 1) {
-    nh.setParam("tracking_method", "eyes");
-    first_run_eyes = 0;
-  }
-  else
-  {
-    nh.setParam("tracking_method", "skeleton");
-    first_run_eyes = -1;
-  }
-
-
-
+  // tracking_method = index;
+  // // std::cout << "The Index is:" << index <<std::endl;
+  // if (index == 0)
+  // {
+  //   nh.setParam("tracking_method", "handtracking");
+  //   first_run_eyes == -1;
+  // }
+  // else if (index == 1) {
+  //   nh.setParam("tracking_method", "sucessiveMA");
+  //   first_run_eyes = 0;
+  // }
+  // else
+  // {
+  //   nh.setParam("tracking_method", "skeleton");
+  //   first_run_eyes = -1;
+  // }
 
 }
 /**
@@ -244,8 +311,18 @@ void tracker_plugin::on_MethodChanged(int index)
 void tracker_plugin::on_addToTrack_clicked(QListWidgetItem *item)
 {
 
-  last_selected_item = ui.face_output_list->currentRow();
+  int last_selected_item = ui.face_output_list->currentRow();
 
+
+  //Now here one publishes the last selected item in the list.
+
+  track_location.pixel_lu.x = face_locs.faces[last_selected_item].pixel_lu.x;
+  track_location.pixel_lu.y = face_locs.faces[last_selected_item].pixel_lu.y;
+  track_location.width.data = face_locs.faces[last_selected_item].width.data;
+  track_location.height.data = face_locs.faces[last_selected_item].height.data;
+  track_location.tracker_name.data = face_locs.faces[last_selected_item].id.data;
+
+  tracker_locations_pub.publish(track_location);
 }
 /**
  * @brief tracker_plugin::on_removeAllTracked_clicked
@@ -256,9 +333,9 @@ void tracker_plugin::on_addToTrack_clicked(QListWidgetItem *item)
 void tracker_plugin::on_removeAllTracked_clicked()
 {
   //Here All Items need only be removed
-  ui.tracker_initial_list->clear();
-  ui.tracker_output_list->clear();
-  cmt.clear();
+  // ui.tracker_initial_list->clear();
+  // ui.tracker_output_list->clear();
+  // cmt.clear();
 }
 /**
  * @brief tracker_plugin::on_removeTracked_clicked
@@ -270,7 +347,7 @@ void tracker_plugin::on_removeTracked_clicked()
 //    qDebug() <<"Elements to Be Deleted: ";
   //Here elements to be removed on tracking.
 //Remove Certain Tracking parameters.
-  qDeleteAll(ui.tracker_output_list->selectedItems());
+  // qDeleteAll(ui.tracker_output_list->selectedItems());
 }
 /**
  * @brief tracker_plugin::on_removeAllElements_clicked
@@ -280,7 +357,7 @@ void tracker_plugin::on_removeTracked_clicked()
 void tracker_plugin::on_removeAllElements_clicked()
 {
   //Clears List
-  ui.face_output_list->clear();
+  // ui.face_output_list->clear();
 }
 
 }

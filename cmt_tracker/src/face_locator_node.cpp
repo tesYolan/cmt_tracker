@@ -142,7 +142,7 @@ public:
 
           cmt_face_locations.faces.push_back(face_description);
 
-          ros::Rate rate(2);
+          // ros::Rate rate(2);
 
         }
         faces_locations.publish(cmt_face_locations);
@@ -184,7 +184,7 @@ public:
 
           cmt_face_locations.faces.push_back(face_description);
           }
-          ros::Rate rate(2);
+          // ros::Rate rate(2);
 
         }
         faces_locations.publish(cmt_face_locations);
@@ -193,6 +193,7 @@ public:
       }
       else
       {
+        ROS_INFO("Choose debuggin Method"); 
         std::cout<<"Please Choose a method of tracking"<<std::endl; 
       }
       // Update GUI Window
