@@ -140,34 +140,57 @@ public:
 
       cv::cvtColor(conversion_mat_, frame_gray, CV_BGR2GRAY);
 
-        // cv::Mat im_gray = frame_gray().clone();
+        cv::Mat im_gray = frame_gray.clone();
     std::cout<<"The number of tracker active is: "<<cmt.size()<<std::endl; 
     
     for (std::vector<CMT>::iterator v = cmt.begin(); v != cmt.end(); ++v)
     {
       //Clear all the previous results relating to the tracker.
       cmt_tracker::Tracker tracker;
-      if ((*v).initialized == true)
+      if ((*v).initialized == true && !im_gray.empty())
       {
-      (*v).processFrame(frame_gray);
+      (*v).processFrame(im_gray);
       cv::Rect rect = (*v).bb_rot.boundingRect();
-      
+      FILE_LOG(logDEBUG) << "Area ouptut is: "<<rect.area();
       tracker.pixel_lu.x = rect.x;
       tracker.pixel_lu.y = rect.y;
       tracker.pixel_lu.z = 0;
 
       tracker.width.data = rect.width;
       tracker.height.data = rect.height;
-
+      tracker.inital_points.data = (*v).num_initial_keypoints;
+      tracker.active_points.data= (*v).num_active_keypoints;  
       tracker.tracker_name.data = (*v).name;
 
-      if(rect.area() > 50)
-      trackers_results.tracker_results.push_back(tracker);
 
+      if(rect.area() > 50)
+      {
+        if ( 0 <= rect.x && 0 <= rect.width && rect.x + rect.width <= im_gray.cols && 0 <= rect.y && 0 <= rect.height && rect.y + rect.height <= im_gray.rows)
+        {
+
+      FILE_LOG(logDEBUG) <<"Returned results with key point: "<<cmt.back().num_active_keypoints;
+      tracker.quality_results.data = true; 
+      trackers_results.tracker_results.push_back(tracker);
+    }
+    else {
+      FILE_LOG(logDEBUG) <<"No suitable result"; 
+      tracker.quality_results.data = false; 
+      trackers_results.tracker_results.push_back(tracker); 
+    }
+      }
       }
 
       //Now let's publish the results of the tracker.
     }
+    cv::Mat area_tobe;  
+
+    // for (int i = 0 ; i < trackers_results.tracker_results.size(); i++)
+    // {
+    // area_tobe= im_gray(cv::Rect(trackers_results.tracker_results[i].pixel_lu.x,trackers_results.tracker_results[i].pixel_lu.y, 
+    //   trackers_results.tracker_results[i].width.data, trackers_results.tracker_results[i].height.data )).clone(); 
+    // cv::imshow("i", area_tobe ); 
+    // cv::waitKey(3);
+    // }
     tracker_results_pub.publish(trackers_results); 
     trackers_results.tracker_results.clear(); 
   }
@@ -176,7 +199,7 @@ public:
   {
     //A potentially high penality task is done here but it's to avoid latter dealing with uncorrectly set trackers.
 
-    ROS_DEBUG("Intialization started"); 
+    FILE_LOG(logDEBUG) << "Initalizing Started ";
     cv::Mat im_gray = frame_gray.clone(); //To avoid change when being run.
     cv::Rect rect(tracker_location.pixel_lu.x, tracker_location.pixel_lu.y, tracker_location.width.data, tracker_location.height.data );
     if (!im_gray.empty() && rect.area() > 50)
@@ -184,16 +207,16 @@ public:
       //Now there must be some way to hold back setting up new tracker;
       cmt.push_back(CMT());
       cmt.back().consensus.estimate_rotation = true;
-      cmt.back().initialize(im_gray, rect, tracker_location.tracker_name.data);
-      ROS_DEBUG("Initalizing done correctly"); 
+      std::string tracker_name = "Tracker : " + tracker_location.tracker_name.data ; 
+      cmt.back().initialize(im_gray, rect, tracker_name);
+      FILE_LOG(logDEBUG) <<"initialized with intial key point: "<<cmt.back().num_initial_keypoints;
     }
     else
     {
-      ROS_DEBUG("Not initialized"); 
+      FILE_LOG(logDEBUG) <<"Not initialized";
       // std::cout << "Not initialized" << std::endl;
     }
 
-    
 
   }
 

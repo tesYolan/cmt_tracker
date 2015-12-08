@@ -16,7 +16,7 @@
 #include <iostream>
 #include <sstream>
 
-// #define SSTR( x ) dynamic_cast< std::ostringstream & >(( std::ostringstream() << std::dec << x ) ).str()
+#define SSTR( x ) dynamic_cast< std::ostringstream & >(( std::ostringstream() << std::dec << x ) ).str()
 
 namespace rqt_tracker_view {
 
@@ -62,11 +62,11 @@ void tracker_plugin::initPlugin(qt_gui_cpp::PluginContext& context)
   nh.getParam("camera_topic", subscribe_topic);
   face_subscriber = (nh).subscribe("face_locations", 1, &rqt_tracker_view::tracker_plugin::list_of_faces_update, this);
   image_subscriber = it.subscribe(subscribe_topic, 1, &rqt_tracker_view::tracker_plugin::imageCb, this);
-  tracked_locations = nh.subscribe("tracker_results", 10 ,&rqt_tracker_view::tracker_plugin::tracker_resultsCb, this);
-                      // // image_publisher = it.advertise("/transformed/images", 1);
+  tracked_locations = nh.subscribe("tracker_results", 10 , &rqt_tracker_view::tracker_plugin::tracker_resultsCb, this);
+  // // image_publisher = it.advertise("/transformed/images", 1);
 
-                      //This is a publisher to check initally by setting trackers in the rqt plugin.
-                      tracker_locations_pub = (nh).advertise<cmt_tracker::Tracker>("tracking_locations", 10);
+  //This is a publisher to check initally by setting trackers in the rqt plugin.
+  tracker_locations_pub = (nh).advertise<cmt_tracker::Tracker>("tracking_locations", 10);
 
   //This is subscribed here because of other nodes outside this rqt plugin  set tracker location and thus this extension
   //must show the ability to show different elements in the process.
@@ -147,14 +147,29 @@ void tracker_plugin::imageCb(const sensor_msgs::ImageConstPtr& msg)
   }
   tracked_image_mats.clear();
   tracked_image_results.clear();
+  tracked_image_information.clear();
+  for (std::vector<cmt_tracker::Tracker>::iterator v = tracking_results.tracker_results.begin(); v != tracking_results.tracker_results.end() ; ++v)
+  {
+    std::string value = (*v).tracker_name.data + "\n" + SSTR((*v).inital_points.data) + "\n" + SSTR((*v).active_points.data);
+    tracked_image_information.push_back( value );
 
-    for (std::vector<cmt_tracker::Tracker>::iterator v = tracking_results.tracker_results.begin(); v != tracking_results.tracker_results.end() ; ++v)
+    //Now here if the tracker results is positive then ouput this as a result of the image other wise update the results.
+    if ((*v).quality_results.data)
     {
       tracked_image_mats.push_back(conversion_mat_(cv::Rect((*v).pixel_lu.x, (*v).pixel_lu.y, (*v).width.data, (*v).height.data)).clone());
       tracked_image_results.push_back(QImage((uchar*) tracked_image_mats.back().data, tracked_image_mats.back().cols, tracked_image_mats.back().rows,
                                              tracked_image_mats.back().step[0], QImage::Format_RGB888));
     }
-  
+    else {
+      cv::Mat img(100, 100, CV_8UC3);
+      img.setTo(cv::Scalar(5));
+      tracked_image_mats.push_back(img.clone()));
+      tracked_image_results.push_back(QImage((uchar*) tracked_image_mats.back().data, tracked_image_mats.back().cols, tracked_image_mats.back().rows,
+                                             tracked_image_mats.back().step[0], QImage::Format_RGB888));
+
+    }
+  }
+
   emit updatefacelist();
 }
 
@@ -164,7 +179,7 @@ This function is the one that update hte UI of all things related to the system.
 void tracker_plugin::updateVisibleFaces()
 {
   ui.face_output_list->clear();
-  ui.tracker_output_list->clear(); 
+  ui.tracker_output_list->clear();
 
 //Update the Faces List.
 
@@ -189,10 +204,11 @@ void tracker_plugin::updateVisibleFaces()
   }
   tracker_updated = false;
 
-
-    for (std::vector<QImage>::iterator v = tracked_image_results.begin(); v != tracked_image_results.end(); ++v)
+  int count_info = 0 ;
+  for (std::vector<QImage>::iterator v = tracked_image_results.begin(); v != tracked_image_results.end(); ++v)
   {
-    ui.tracker_output_list->addItem(new QListWidgetItem(QIcon(QPixmap::fromImage(*v)), "Tracking Results"));
+    ui.tracker_output_list->addItem(new QListWidgetItem(QIcon(QPixmap::fromImage(*v)), QString::fromStdString(tracked_image_information[count_info])));
+    count_info++;
   }
 
 
@@ -268,7 +284,7 @@ void tracker_plugin::tracker_resultsCb(const cmt_tracker::Trackers& tracker_resu
 {
   //Check whether this is invalided when the loop exits.
   // = tracker_results;
-  tracking_results.tracker_results.clear(); 
+  tracking_results.tracker_results.clear();
   for (int i = 0; i < tracker_results.tracker_results.size(); i++)
   {
     tracking_results.tracker_results.push_back(tracker_results.tracker_results[i]);
