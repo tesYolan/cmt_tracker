@@ -31,7 +31,7 @@ The requirements of the this class:
 1. This the function spawns the CMT instances.
   1.1 This is the fucntion that initalized.
   1.2 This is the one that publishes the location of the tracker results to the system.
-  1.3 This is the fucntion that makes the decision on what to track and what not to track.
+  
 
 2. This is the fucntion that holds parameters for the tracker configuration and the one that would be modified when changes are made the plugin.
   2.1 When a person changes the configuration in the parameter server; this fucntion must change the way it performs it's tasks.
@@ -40,12 +40,13 @@ The requirements of the this class:
 
 3. THIS FUNCTION MUST BE THREADED.
 
-How i should proceed is this;
+What do i need to do?
 
-1st. Takeout everything from the tracker_plugin and make it in the cmt_tracker_node
-  This step includes  1. Make the CMT_Tracker Listen to parameter settings and start processing the elements.
-                      2. Make a detailed description of the output to rely to the other system.
-                      3. Evaluate the performance of the system.
+Make this function handle the processing of the instances of cmt.
+Make this function have nothing to do with any rules.
+Make this function configurable from outside with parameters.
+Suppress all the info coming from the cmt library. 
+
 */
 
 using namespace cmt;
@@ -55,6 +56,7 @@ class TrackerCMT
 //to hold the value of the image
   cv::Mat conversion_mat_;
   cv::Mat frame_gray;
+
   std::vector<cv::Mat> tracked_images;
 
   cv::CascadeClassifier face_cascade;
@@ -63,25 +65,34 @@ class TrackerCMT
   std::vector<cv::Rect> eyes;
 
   ros::NodeHandle nh_;
+
   cmt_tracker::Tracker track_location;
+
   ros::ServiceServer clear_service;
+
   image_transport::ImageTransport it_;
   image_transport::Subscriber image_sub_;
   image_transport::Publisher image_pub_;
+
   ros::Publisher tracker_locations_pub;
   ros::Publisher tracker_results_pub;
+
   ros::Subscriber face_results;
   ros::Subscriber tracker_subscriber;
   ros::Subscriber face_subscriber;
+
   cmt_tracker::Tracker tracker_set;
   cmt_tracker::Faces face_locs;
   cmt_tracker::Trackers trackers_results;
+
   std::vector<CMT> cmt;
   std::vector<int> quality_of_tracker;
+
+
   std::string tracking_method;
   bool setup;
   int last_count; 
-  int jitterness; 
+  
 
   std::vector<cv::Rect> locations_of_trackers; //for setting the tracking to higher levels.
   std::string subscribe_topic;
@@ -94,9 +105,7 @@ class TrackerCMT
 public:
   TrackerCMT() : it_(nh_)
   {
-    //Here lies the essential parameters that we would set up to track the files.
-    //Initally till things get to function pretty well let's do this nothing. Just subscribe to the images and publishing topics.
-    jitterness=-1; 
+    
     if ( !face_cascade.load("/usr/share/opencv/haarcascades/haarcascade_frontalface_alt.xml" ) || !eyes_cascade.load("/usr/share/opencv/haarcascades/haarcascade_eye_tree_eyeglasses.xml" ))
     { setup = false;  };
     setup = true;
@@ -115,6 +124,7 @@ public:
     // masked_image = cv_bridge::CvImage(std_msgs::Header(), "mono", image_roi).toImageMsg();
     tracker_subscriber = (nh_).subscribe("tracking_locations", 1, &TrackerCMT::set_tracker, this);
     image_pub_ = it_.advertise("/transformed/images", 1);
+    
     tracker_results_pub = nh_.advertise<cmt_tracker::Trackers>("tracker_results", 10);
 
   }
@@ -137,7 +147,7 @@ public:
   */
   void imageCb(const sensor_msgs::ImageConstPtr& msg)
   {
-
+    //TODO why not just subscribe to the MONO image and skip all this handling. A way must be included to do that functionality. 
     try
     {
       // First let cv_bridge do its magic
@@ -219,119 +229,13 @@ public:
         }
       }
     }
-
-
-
     tracker_results_pub.publish(trackers_results);
-
-
-    nh_.getParam("tracking_method", tracking_method);
-    if (tracking_method.compare("sucessiveMA") == 0)
-    {
-
-      //Initally steps to setup the trackers.
-
-      //First initialize the tracker with the the first face.
-
-      //Here there seems to be a problem with the number of key points initally set make the system hard.
-      for (std::vector<cmt_tracker::Face>::iterator v = face_locs.faces.begin(); v != face_locs.faces.end() ; ++v)
-      {
-
-        track_location.pixel_lu.x = (*v).pixel_lu.x;
-        track_location.pixel_lu.y = (*v).pixel_lu.y;
-        track_location.width.data = (*v).width.data;
-        track_location.height.data = (*v).height.data;
-        track_location.tracker_name.data = (*v).id.data;
-
-//To Set the first Tracker--- FOr initial testing
-        if (cmt.size() == 0)
-          tracker_locations_pub.publish(track_location);
-//Now let's do some processing on the image mat.
-
-
-      }
-      cv::Mat imageROI = im_gray.clone();
-      for (std::vector<cmt_tracker::Tracker>::iterator v = trackers_results.tracker_results.begin(); v != trackers_results.tracker_results.end() ; ++v)
-      {
-        cv::Rect rect = cv::Rect((*v).pixel_lu.x, (*v).pixel_lu.y, (*v).width.data, (*v).height.data);
-        cv::Rect normailze = rect & cv::Rect(0, 0, imageROI.size().width, imageROI.size().height);
-        cv::Mat mask(normailze.size(), CV_16UC1);
-        if (((*v).active_points.data)  >  ((*v).inital_points.data) * 0.4 )//If not start counter to the object for the nth frame
-        {
-          mask.setTo(cv::Scalar(5));
-          mask.copyTo(imageROI(normailze));
-        }
-        
-          //Mark the quality of this and wait to 5 frames for it. Then if the quality of this tracker doesn't reach good levels set's new tracker.
-
-        
-      }
-      //Now the mask is small.
-
-          cv::Mat hist_val; 
-          cv::equalizeHist( imageROI, hist_val ); 
-          face_cascade.detectMultiScale( hist_val, faces, 1.05, 4, 0 | cv::CASCADE_SCALE_IMAGE, cv::Size(40, 40) );
-        
-          for (size_t i = 0; i < faces.size(); i++)
-        {
-         cv::Mat face_Frame(hist_val(faces[i])); 
-          // cv::cvtColor( frame, frame_gray, COLOR_BGR2GRAY );
-          // cv::equalizeHist( frame_gray, frame_gray );
-          eyes_cascade.detectMultiScale( face_Frame, eyes, 1.1, 2, 0| cv::CASCADE_SCALE_IMAGE, cv::Size(30, 30) );
-
-          //Now if the above doesn't bring up two eyes then skip 
-          //it 
-          size_t eye_num= 2; 
-          if(eyes.size() > 0)
-          {
-        track_location.pixel_lu.x = faces[i].x;
-        track_location.pixel_lu.y = faces[i].y;
-        track_location.width.data = faces[i].width;
-        track_location.height.data = faces[i].height;
-        track_location.tracker_name.data = "New Values";
-        if(last_count==10)
-        {
-          tracker_locations_pub.publish(track_location);
-          last_count=0; 
-        }
-        else //found an face wait for it 5. 
-        last_count++; 
-          }
-          else //Not found a face. 
-          {
-            //Also for jitterness
-            if(jitterness == -1)
-            {
-              jitterness =0;
-            }
-            else if(jitterness ==0)
-            {
-              jitterness = 1; 
-            }
-            else{
-              jitterness=-1;
-              last_count=0; 
-            }
-            
-          }
-        }
-      masked_image = cv_bridge::CvImage(std_msgs::Header(), "mono8", imageROI).toImageMsg();
-
-      image_pub_.publish(masked_image);
-      //Now let's visualize the results for a couple of seconds and if it's doesn't reach half
-      //the inital active points we set a new tracker to it.
-
-      //Now the rules are simple we overwrite the results of the image in the system.
-
-    }
     trackers_results.tracker_results.clear();
   }
 
   void list_of_faces_update(const cmt_tracker::Faces& faces_info)
   {
-    ROS_DEBUG("It get's here in the faces update");
     face_locs.faces.clear();
-    //May be better to use an iterator to handle the function.
     for (int i = 0; i < faces_info.faces.size(); i++)
     {
       face_locs.faces.push_back(faces_info.faces[i]);
@@ -342,8 +246,6 @@ public:
   void set_tracker(const cmt_tracker::Tracker& tracker_location)
   {
     //A potentially high penality task is done here but it's to avoid latter dealing with uncorrectly set trackers.
-
-    FILE_LOG(logDEBUG) << "Initalizing Started ";
     cv::Mat im_gray = frame_gray.clone(); //To avoid change when being run.
     cv::Rect rect(tracker_location.pixel_lu.x, tracker_location.pixel_lu.y, tracker_location.width.data, tracker_location.height.data );
     if (!im_gray.empty() && rect.area() > 50)
@@ -351,51 +253,21 @@ public:
       //Now there must be some way to hold back setting up new tracker;
       cmt.push_back(CMT());
       cmt.back().consensus.estimate_rotation = true;
-
-      std::string tracker_name = "Tracker : " + tracker_location.tracker_name.data ;
+      std::string tracker_name = tracker_location.tracker_name.data.c_str() ;
+      FILE_LOG(logDEBUG)<<"The tracker name is: "<<tracker_name;
       cmt.back().initialize(im_gray, rect, tracker_name);
-      FILE_LOG(logDEBUG) << "initialized with intial key point: " << cmt.back().num_initial_keypoints;
       quality_of_tracker.push_back(cmt.back().num_initial_keypoints);
     }
     else
     {
       FILE_LOG(logDEBUG) << "Not initialized";
-      // std::cout << "Not initialized" << std::endl;
     }
-
-
   }
 
-// void process()
-// {
-//   std::cout << "Entered Processing" << std::endl;
-//   cv::Mat im_gray = frame_gray().clone();
-//   for (std::vector<CMT>::iterator v = cmt.begin(); v != cmt.end(); ++v)
-//   {
-//     //Clear all the previous results relating to the tracker.
-//     (*v).processFrame(im_gray);
-//     cv::Rect rect = (*v).bb_rot.boundingRect();
-//     cmt_tracker::Tracker tracker;
-//     tracker.pixel_lu.x = rect.x;
-//     tracker.pixel_lu.y = rect.y;
-//     tracker.pixel_lu.z = 0;
-
-//     tracker.width.data = rect.width;
-//     tracker.height.data = rect.height;
-
-//     tracker.name.data = (*v).name;
-
-//     trackers_results.tracker_results.push_back(tracker);
-
-//     //Now let's publish the results of the tracker.
-//   }
-//   tracker_results_pub.publish(trackers_results);
-//   //This is a fucniton that performs that does the elements.
-
-//   std::cout<<"Outputed results of processing"<<std::endl;
-//   //Now publish the results of the tracking.
-
-// }
+  void remove_tracker(int index)
+  {
+    cmt.erase(cmt.begin()+index);
+  }
 
 };
 
