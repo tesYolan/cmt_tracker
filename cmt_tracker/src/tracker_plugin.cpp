@@ -9,7 +9,7 @@
 #include <ros/ros.h>
 #include <ros/console.h>
 #include <cmt_tracker/Clear.h>
-
+#include <cmt_tracker/TrackedImages.h>
 #include <cmt_tracker/Face.h>
 #include <cmt_tracker/Faces.h>
 
@@ -55,10 +55,11 @@ void tracker_plugin::initPlugin(qt_gui_cpp::PluginContext& context)
   // frame = 0;
   tracker_updated = false;
   tracking_results_updated = false;
-  ui.face_choice_method->addItem("Hand Slection Trackings");
-  ui.face_choice_method->addItem("Eyes and Consecutive Average");
-  ui.face_choice_method->addItem("Static Descriptors Matching");
+  ui.face_choice_method->addItem("Hand Selection Trackings");
+  ui.face_choice_method->addItem("Remove on LOST");
+  ui.face_choice_method->addItem("Face Recognition Method");
   image_transport::ImageTransport it(nh);
+
   nh.getParam("camera_topic", subscribe_topic);
   face_subscriber = (nh).subscribe("face_locations", 1, &rqt_tracker_view::tracker_plugin::list_of_faces_update, this);
   image_subscriber = it.subscribe(subscribe_topic, 1, &rqt_tracker_view::tracker_plugin::imageCb, this);
@@ -67,7 +68,11 @@ void tracker_plugin::initPlugin(qt_gui_cpp::PluginContext& context)
 
   //This is a publisher to check initally by setting trackers in the rqt plugin.
   tracker_locations_pub = (nh).advertise<cmt_tracker::Tracker>("tracking_locations", 10);
-  client = nh.serviceClient<cmt_tracker::Clear>("clear"); 
+
+  client = nh.serviceClient<cmt_tracker::Clear>("clear");
+  client_image= nh.serviceClient<cmt_tracker::TrackedImages>("get_cmt_rects");
+
+
   //This is subscribed here because of other nodes outside this rqt plugin  set tracker location and thus this extension
   //must show the ability to show different elements in the process.
   tracker_locations_sub = (nh).subscribe("tracking_locations", 10 , &rqt_tracker_view::tracker_plugin::trackerCb, this);
@@ -140,6 +145,11 @@ void tracker_plugin::imageCb(const sensor_msgs::ImageConstPtr& msg)
 
   if (tracker_updated)
   {
+  //Now let get the service call to the system.
+
+
+      //Now let's iterate over the results and rename the systems.
+
     tracked_images.push_back(conversion_mat_(cv::Rect(track_published.pixel_lu.x, track_published.pixel_lu.y, track_published.width.data,
                              track_published.height.data)).clone());
     tracked_faces.push_back(QImage((uchar*) tracked_images.back().data, tracked_images.back().cols, tracked_images.back().rows,
@@ -153,7 +163,7 @@ void tracker_plugin::imageCb(const sensor_msgs::ImageConstPtr& msg)
     std::string value = (*v).tracker_name.data + "\n" + SSTR((*v).inital_points.data) + "\n" + SSTR((*v).active_points.data);
     tracked_image_information.push_back( value );
 
-    //Now here if the tracker results is positive then ouput this as a result of the image other wise update the results.
+    //Now here if the tracker results is positive then output this as a result of the image other wise update the results.
     if ((*v).quality_results.data)
     {
       tracked_image_mats.push_back(conversion_mat_(cv::Rect((*v).pixel_lu.x, (*v).pixel_lu.y, (*v).width.data, (*v).height.data)).clone());
@@ -181,26 +191,26 @@ void tracker_plugin::updateVisibleFaces()
   ui.face_output_list->clear();
   ui.tracker_output_list->clear();
 
-//Update the Faces List.
 
-  // ui.tracker_output_list->clear();
-  // ui.tracker_output_list->clear();
-  // int counter_name = 0;
-  // for (std::vector<QImage>::iterator it = qmap.begin(); it != qmap.end(); ++it)
-  // {
-  //   //Update the Face ID with a complete description of the face()
-  //   // ui.face_output_list->addItem(new QListWidgetItem(QIcon(QPixmap::fromImage(*it)), QString::number(face_locs.faces[counter_name].id.data)));
-  //   counter_name++;
-  // }
   for (std::vector<QImage>::iterator v = face_images.begin(); v != face_images.end(); ++v)
   {
     ui.face_output_list->addItem(new QListWidgetItem(QIcon(QPixmap::fromImage(*v)), "Faces"));
   }
 
   //Update the last element to the list
+  //Sends a service to get all images from the cmt_node.
   if (tracker_updated)
   {
-    ui.tracker_initial_list->addItem(new QListWidgetItem(QIcon(QPixmap::fromImage(tracked_faces.back())), "Initial"));
+    cmt_tracker::TrackedImages results;
+
+    client_image.call(results); //Query the images from the CMT tracker.
+
+    ui.tracker_initial_list->clear();
+
+    //tracked_faces.push_back(QImage((uchar*) tracked_images.back().data, tracked_images.back().cols, tracked_images.back().rows,tracked_images.back().step[0], QImage::Format_RGB888));
+
+    //ui.tracker_initial_list->addItem(new QListWidgetItem(QIcon(QPixmap::fromImage(tracked_faces.back())), "Initial"));
+
   }
   tracker_updated = false;
 
@@ -212,55 +222,12 @@ void tracker_plugin::updateVisibleFaces()
   }
 
 
-
-// //Add to the Tracking in the system.
-//   if (hold_var != -1 || auto_emit > 0) //something is selected
-//   {
-//     //Move this to the next time when the GUI is updated.
-//     if (auto_emit < 0)
-//     {
-//       std::cout << "Updating previously selected item: " << hold_var << std::endl;
-//       //Replace with ability to store all values of a previous.
-//       QImage qimage = QImage(face_images[hold_var].data, face_images[hold_var].cols, face_images[hold_var].rows,
-//                              face_images[hold_var].step[0], QImage::Format_RGB888);
-//       ui.tracker_initial_list->addItem(new QListWidgetItem(QIcon(QPixmap::fromImage(qimage)), "Being Tracked"));
-//     }
-//     else
-//     {
-//       //Now this is a new set of images
-//       std::cout << "Updating previously selected item: " << hold_var << std::endl;
-//       //Replace with ability to store all values of a previous.
-//       QImage qimage = QImage(face_images[hold_var].data, face_images[hold_var].cols, face_images[hold_var].rows,
-//                              face_images[hold_var].step[0], QImage::Format_RGB888);
-//       ui.tracker_initial_list->addItem(new QListWidgetItem(QIcon(QPixmap::fromImage(qimage)), "Being Tracked"));
-//     }
-//   }
-//   hold_var = -1;
-//   auto_emit = auto_emit - 1;
-
-// //Visualize the Results of the system.
-//   int counter_id = 0;
-
-
-//   for (std::vector<QImage>::iterator it = tracked_image_results.begin(); it != tracked_image_results.end(); ++it)
-//   {
-//     ui.tracker_output_list->addItem(new QListWidgetItem(QIcon(QPixmap::fromImage(*it)),  QString::number(counter_id)));
-//     counter_id++;
-//   }
-
-  // ros::Rate rate(1);
-
 }
-
-
-
-
 /**
 The one is the one that update the value of the funciton .
 */
 void tracker_plugin::list_of_faces_update(const cmt_tracker::Faces& faces_info)
 {
-  ROS_DEBUG("It get's here in the faces update");
   face_locs.faces.clear();
   //May be better to use an iterator to handle the function.
   for (int i = 0; i < faces_info.faces.size(); i++)
@@ -272,6 +239,8 @@ void tracker_plugin::list_of_faces_update(const cmt_tracker::Faces& faces_info)
 void tracker_plugin::trackerCb(const cmt_tracker::Tracker& tracker_locs)
 {
   //track_published = tracker_locs;
+
+  //This is the condition we update the system.
   track_published.pixel_lu.x = tracker_locs.pixel_lu.x;
   track_published.pixel_lu.y = tracker_locs.pixel_lu.y;
   track_published.width.data = tracker_locs.width.data;
@@ -279,6 +248,7 @@ void tracker_plugin::trackerCb(const cmt_tracker::Tracker& tracker_locs)
   track_published.tracker_name.data = tracker_locs.tracker_name.data;
 
   tracker_updated = true;
+
 }
 void tracker_plugin::tracker_resultsCb(const cmt_tracker::Trackers& tracker_results)
 {
@@ -310,12 +280,12 @@ void tracker_plugin::on_MethodChanged(int index)
     
   }
   else if (index == 1) {
-    nh.setParam("tracking_method", "sucessiveMA");
+    nh.setParam("tracking_method", "DisappearingFace");
     
   }
   else
   {
-    nh.setParam("tracking_method", "skeleton");
+    nh.setParam("tracking_method", "FaceRecognition");
     
   }
 
@@ -369,10 +339,7 @@ void tracker_plugin::on_removeAllTracked_clicked()
  */
 void tracker_plugin::on_removeTracked_clicked()
 {
-//    qDebug() <<"Elements to Be Deleted: ";
-  //Here elements to be removed on tracking.
-//Remove Certain Tracking parameters.
-  // qDeleteAll(ui.tracker_output_list->selectedItems());
+
 }
 /**
  * @brief tracker_plugin::on_removeAllElements_clicked
@@ -381,8 +348,7 @@ void tracker_plugin::on_removeTracked_clicked()
  */
 void tracker_plugin::on_removeAllElements_clicked()
 {
-  //Clears List
-  // ui.face_output_list->clear();
+
 }
 
 }

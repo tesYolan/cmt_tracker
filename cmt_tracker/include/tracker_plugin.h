@@ -39,7 +39,8 @@ public:
     ros::Subscriber tracker_locations_sub;
     ros::Subscriber face_subscriber;
     ros::Subscriber tracked_locations; 
-    ros::ServiceClient client; 
+    ros::ServiceClient client;
+    ros::ServiceClient image_client;
     image_transport::Subscriber image_subscriber;
     // image_transport::Publisher image_publisher;
     // sensor_msgs::ImagePtr image_published;

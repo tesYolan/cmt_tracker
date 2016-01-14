@@ -10,6 +10,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   rqt_gui
   rqt_gui_cpp
+  sensor_msgs
   message_generation
 )
 find_package(OpenCV REQUIRED)
@@ -79,7 +80,7 @@ catkin_python_setup()
  add_service_files(
    FILES
    Clear.srv
-#   Service2.srv
+   TrackedImages.srv
  )
 
 ## Generate actions in the 'action' folder
@@ -94,6 +95,7 @@ catkin_python_setup()
    DEPENDENCIES
    std_msgs  # Or other packages containing msgs
    geometry_msgs
+   sensor_msgs
  )
 
 ################################################

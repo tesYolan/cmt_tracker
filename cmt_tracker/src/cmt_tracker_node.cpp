@@ -1,18 +1,25 @@
 //This is the base file that will handle all the relevant part of processing
+
+//Messages for holding tracker and face locations
 #include <cmt_tracker/Tracker.h>
 #include <cmt_tracker/Trackers.h>
 #include <cmt_tracker/Face.h>
 #include <cmt_tracker/Faces.h>
+
+//OpenCV libraries
 #include <opencv2/core/core.hpp>
 #include <opencv2/objdetect/objdetect.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
+
+//ROS - OpenCV libraries
 #include <image_transport/image_transport.h>
 #include <sensor_msgs/Image.h>
 #include <cv_bridge/cv_bridge.h>
 #include <sensor_msgs/image_encodings.h>
 //#include <sensor_msgs/ImageConstPtr.h>
 
+//Service call to reset the values of the images in the system
 #include <cmt_tracker/Clear.h>
 
 // CMT libraryies
@@ -24,6 +31,10 @@
 #include "getopt/getopt.h"
 #endif
 // CMT Libraries End
+
+//Threading Libraries
+#include <boost/thread.hpp>
+
 
 
 /**
@@ -69,6 +80,7 @@ class TrackerCMT
   cmt_tracker::Tracker track_location;
 
   ros::ServiceServer clear_service;
+  ros::ServiceServer image_service;
 
   image_transport::ImageTransport it_;
   image_transport::Subscriber image_sub_;
@@ -115,7 +127,12 @@ public:
     frame_previous = 0;
     //To acquire the image that we will be doing processing on
     image_sub_ = it_.subscribe(subscribe_topic, 1, &TrackerCMT::imageCb, this);
+
+
+    //Service to deal with the image systems.
     clear_service = nh_.advertiseService("clear", &TrackerCMT::clear, this);
+    image_service = nh_.advertiseService("get_cmt_rects", &TrackerCMT::getTrackedImages, this);
+
     //To acquire the list of faces currently in track.
     face_subscriber = (nh_).subscribe("face_locations", 1, &TrackerCMT::list_of_faces_update, this);
     tracker_locations_pub = (nh_).advertise<cmt_tracker::Tracker>("tracking_locations", 10);
@@ -135,15 +152,33 @@ public:
     quality_of_tracker.clear();
     if (cmt.size() == 0)
     {
-      // res.clear= true;
+       res.cleared= true;
     }
-    else {
-      // res.clear = false;
+    else
+    {
+       res.cleared = false;
     }
     return true;
   }
   /*
-  This  function is a callback fucntion that happens when an image update occurs.
+  Request the images in the system.
+  */
+  bool getTrackedImages(cmt_tracker::TrackedImages::Request &req, cmt_tracker::TrackedImages::Response &res)
+  {
+  //Now this get's the name of elements in one iteration in a single copy method.
+      for (std::vector<CMT>::iterator v = cmt.begin(); v!= cmt.end(); ++v)
+      {
+        res.names.push_back((*v).name);
+
+        sensor_msgs::ImagePtr masked_image=cv_bridge::CvImage(std_msgs::Header(), "rgb8", image_roi).toImageMsg();
+
+        res.image.push_back((*v).imArchive);
+
+      }
+      return true;
+  }
+  /*
+  This  function is a callback function that happens when an image update occurs.
   */
   void imageCb(const sensor_msgs::ImageConstPtr& msg)
   {
@@ -241,8 +276,6 @@ public:
       face_locs.faces.push_back(faces_info.faces[i]);
     }
   }
-
-
   void set_tracker(const cmt_tracker::Tracker& tracker_location)
   {
     //A potentially high penality task is done here but it's to avoid latter dealing with uncorrectly set trackers.
@@ -253,7 +286,7 @@ public:
       //Now there must be some way to hold back setting up new tracker;
       cmt.push_back(CMT());
       cmt.back().consensus.estimate_rotation = true;
-      std::string tracker_name = tracker_location.tracker_name.data.c_str() ;
+      std::string tracker_name = tracker_location.tracker_name.data ;
       FILE_LOG(logDEBUG)<<"The tracker name is: "<<tracker_name;
       cmt.back().initialize(im_gray, rect, tracker_name);
       quality_of_tracker.push_back(cmt.back().num_initial_keypoints);
