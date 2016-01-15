@@ -5,6 +5,7 @@
 #include <cmt_tracker/Trackers.h>
 #include <cmt_tracker/Face.h>
 #include <cmt_tracker/Faces.h>
+#include <cmt_tracker/TrackedImages.h>
 
 //OpenCV libraries
 #include <opencv2/core/core.hpp>
@@ -163,16 +164,17 @@ public:
   /*
   Request the images in the system.
   */
-  bool getTrackedImages(cmt_tracker::TrackedImages::Request &req, cmt_tracker::TrackedImages::Response &res)
+  bool getTrackedImages(cmt_tracker::TrackedImages::Request &req,
+                        cmt_tracker::TrackedImages::Response &res)
   {
   //Now this get's the name of elements in one iteration in a single copy method.
       for (std::vector<CMT>::iterator v = cmt.begin(); v!= cmt.end(); ++v)
       {
-        res.names.push_back((*v).name);
+        //res.names.push_back(const_cast<std::string>((*v).name));
 
-        sensor_msgs::ImagePtr masked_image=cv_bridge::CvImage(std_msgs::Header(), "rgb8", image_roi).toImageMsg();
+        sensor_msgs::ImagePtr masked_image=cv_bridge::CvImage(std_msgs::Header(), "rgb8", (*v).imArchive).toImageMsg();
 
-        res.image.push_back((*v).imArchive);
+        //res.image.push_back(masked_image);
 
       }
       return true;

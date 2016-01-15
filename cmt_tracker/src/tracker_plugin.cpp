@@ -70,7 +70,7 @@ void tracker_plugin::initPlugin(qt_gui_cpp::PluginContext& context)
   tracker_locations_pub = (nh).advertise<cmt_tracker::Tracker>("tracking_locations", 10);
 
   client = nh.serviceClient<cmt_tracker::Clear>("clear");
-  client_image= nh.serviceClient<cmt_tracker::TrackedImages>("get_cmt_rects");
+  image_client= nh.serviceClient<cmt_tracker::TrackedImages>("get_cmt_rects");
 
 
   //This is subscribed here because of other nodes outside this rqt plugin  set tracker location and thus this extension
@@ -147,7 +147,6 @@ void tracker_plugin::imageCb(const sensor_msgs::ImageConstPtr& msg)
   {
   //Now let get the service call to the system.
 
-
       //Now let's iterate over the results and rename the systems.
 
     tracked_images.push_back(conversion_mat_(cv::Rect(track_published.pixel_lu.x, track_published.pixel_lu.y, track_published.width.data,
@@ -203,13 +202,41 @@ void tracker_plugin::updateVisibleFaces()
   {
     cmt_tracker::TrackedImages results;
 
-    client_image.call(results); //Query the images from the CMT tracker.
-
+    if(image_client.call(results))
+     //Query the images from the CMT tracker.
+    {
     ui.tracker_initial_list->clear();
+
+    //CVMAT list of the faces.
+    tracked_images.clear();
+
+    //QIMage list of tracked results
+    tracked_faces.clear();
+    //Now how do we get the items from the list of indexes.
+
+    for (int i = 0; i < results.response.image.size(); i++)
+    {
+        cv_bridge::CvImagePtr cv_ptr = cv_bridge::toCvShare(results.response.image[i], sensor_msgs::image_encodings::RGB8);
+        tracked_images.push_back(cv_ptr->image);
+        tracked_faces.push_back(QImage((uchar*) tracked_images.back().data, tracked_images.back().cols, tracked_images.back().rows,tracked_images.back().step[0], QImage::Format_RGB888));
+    }
 
     //tracked_faces.push_back(QImage((uchar*) tracked_images.back().data, tracked_images.back().cols, tracked_images.back().rows,tracked_images.back().step[0], QImage::Format_RGB888));
 
-    //ui.tracker_initial_list->addItem(new QListWidgetItem(QIcon(QPixmap::fromImage(tracked_faces.back())), "Initial"));
+    //Now let's add all the values by iterating over a list of items in space
+
+    for (int i = 0; i < results.response.names.size(); i++)
+    {
+
+      ui.tracker_initial_list->addItem(new QListWidgetItem(QIcon(QPixmap::fromImage(tracked_faces[i])), QString::fromUtf8(results.response.names[i].data.c_str())));
+
+    }
+
+    }
+    else
+    {
+      //DISPLAY ERROR in the SYSTEM.
+    }
 
   }
   tracker_updated = false;
