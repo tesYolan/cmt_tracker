@@ -216,9 +216,11 @@ void tracker_plugin::updateVisibleFaces()
 
     for (int i = 0; i < results.response.image.size(); i++)
     {
-        cv_bridge::CvImagePtr cv_ptr = cv_bridge::toCvShare(results.response.image[i], sensor_msgs::image_encodings::RGB8);
-        tracked_images.push_back(cv_ptr->image);
-        tracked_faces.push_back(QImage((uchar*) tracked_images.back().data, tracked_images.back().cols, tracked_images.back().rows,tracked_images.back().step[0], QImage::Format_RGB888));
+        //sensor_msgs::ImagePtr im(results.response.image[i]);
+        //cv_bridge::toCvShare(results.response.image[i], sensor_msgs::image_encodings::RGB8);
+
+        //tracked_images.push_back(cv_ptr.image);
+        //tracked_faces.push_back(QImage((uchar*) tracked_images.back().data, tracked_images.back().cols, tracked_images.back().rows,tracked_images.back().step[0], QImage::Format_RGB888));
     }
 
     //tracked_faces.push_back(QImage((uchar*) tracked_images.back().data, tracked_images.back().cols, tracked_images.back().rows,tracked_images.back().step[0], QImage::Format_RGB888));
@@ -228,7 +230,7 @@ void tracker_plugin::updateVisibleFaces()
     for (int i = 0; i < results.response.names.size(); i++)
     {
 
-      ui.tracker_initial_list->addItem(new QListWidgetItem(QIcon(QPixmap::fromImage(tracked_faces[i])), QString::fromUtf8(results.response.names[i].data.c_str())));
+      ui.tracker_initial_list->addItem(new QListWidgetItem(QIcon(QPixmap::fromImage(tracked_faces[i])), QString::fromUtf8(results.response.names[i].c_str())));
 
     }
 

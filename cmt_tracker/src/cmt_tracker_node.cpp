@@ -170,11 +170,12 @@ public:
   //Now this get's the name of elements in one iteration in a single copy method.
       for (std::vector<CMT>::iterator v = cmt.begin(); v!= cmt.end(); ++v)
       {
-        //res.names.push_back(const_cast<std::string>((*v).name));
 
-        sensor_msgs::ImagePtr masked_image=cv_bridge::CvImage(std_msgs::Header(), "rgb8", (*v).imArchive).toImageMsg();
+        res.names.push_back((*v).name);
 
-        //res.image.push_back(masked_image);
+        sensor_msgs::ImagePtr masked_image= cv_bridge::CvImage(std_msgs::Header(), "rgb8", (*v).imArchive).toImageMsg();
+
+        res.image.push_back(*masked_image);
 
       }
       return true;
