@@ -86,7 +86,7 @@ class TrackerCMT
   image_transport::ImageTransport it_;
   image_transport::Subscriber image_sub_;
   image_transport::Publisher image_pub_;
-
+  image_transport::Publisher image_face_pub;
   ros::Publisher tracker_locations_pub;
   ros::Publisher tracker_results_pub;
 
@@ -110,6 +110,7 @@ class TrackerCMT
   std::vector<cv::Rect> locations_of_trackers; //for setting the tracking to higher levels.
   std::string subscribe_topic;
   sensor_msgs::ImagePtr masked_image;
+
   int frame_counters;
   int frame_previous;
 
@@ -142,6 +143,7 @@ public:
     // masked_image = cv_bridge::CvImage(std_msgs::Header(), "mono", image_roi).toImageMsg();
     tracker_subscriber = (nh_).subscribe("tracking_locations", 1, &TrackerCMT::set_tracker, this);
     image_pub_ = it_.advertise("/transformed/images", 1);
+    image_face_pub = it_.advertise("/transformed/faces", 1);
     
     tracker_results_pub = nh_.advertise<cmt_tracker::Trackers>("tracker_results", 10);
 
@@ -174,6 +176,10 @@ public:
         res.names.push_back((*v).name);
 
         sensor_msgs::ImagePtr masked_image= cv_bridge::CvImage(std_msgs::Header(), "rgb8", (*v).imArchive).toImageMsg();
+
+
+        //Why not publish the image here and see it's corresponding response regarding how to implement the best form of the system.
+        image_face_pub.publish(masked_image);
 
         res.image.push_back(*masked_image);
 

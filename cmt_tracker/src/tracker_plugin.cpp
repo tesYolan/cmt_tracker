@@ -216,11 +216,14 @@ void tracker_plugin::updateVisibleFaces()
 
     for (int i = 0; i < results.response.image.size(); i++)
     {
-        //sensor_msgs::ImagePtr im(results.response.image[i]);
-        //cv_bridge::toCvShare(results.response.image[i], sensor_msgs::image_encodings::RGB8);
+        sensor_msgs::Image im = results.response.image[i];
 
-        //tracked_images.push_back(cv_ptr.image);
-        //tracked_faces.push_back(QImage((uchar*) tracked_images.back().data, tracked_images.back().cols, tracked_images.back().rows,tracked_images.back().step[0], QImage::Format_RGB888));
+        sensor_msgs::Image::Ptr  r= boost::make_shared<sensor_msgs::Image>(im);
+
+        cv_bridge::CvImageConstPtr cv_ptr = cv_bridge::toCvShare(r, sensor_msgs::image_encodings::RGB8);
+
+        tracked_images.push_back(cv_ptr->image);
+        tracked_faces.push_back(QImage((uchar*) tracked_images.back().data, tracked_images.back().cols, tracked_images.back().rows,tracked_images.back().step[0], QImage::Format_RGB888));
     }
 
     //tracked_faces.push_back(QImage((uchar*) tracked_images.back().data, tracked_images.back().cols, tracked_images.back().rows,tracked_images.back().step[0], QImage::Format_RGB888));
