@@ -218,12 +218,23 @@ void tracker_plugin::updateVisibleFaces()
     {
         sensor_msgs::Image im = results.response.image[i];
 
-        sensor_msgs::Image::Ptr  r= boost::make_shared<sensor_msgs::Image>(im);
+        sensor_msgs::ImagePtr  r= boost::shared_ptr<sensor_msgs::Image>(boost::make_shared<sensor_msgs::Image>(im));
+        //r = boost::shared_ptr<sensor_msgs::Image>(im);
+        cv_bridge::CvImageConstPtr cv_ptr;
+        cv::Mat image;
 
-        cv_bridge::CvImageConstPtr cv_ptr = cv_bridge::toCvShare(r, sensor_msgs::image_encodings::RGB8);
-
-        tracked_images.push_back(cv_ptr->image);
-        tracked_faces.push_back(QImage((uchar*) tracked_images.back().data, tracked_images.back().cols, tracked_images.back().rows,tracked_images.back().step[0], QImage::Format_RGB888));
+        //try{
+        cv_ptr = cv_bridge::toCvShare(r);
+        image= cv_ptr->image;
+        cv::imshow("H", image);
+//        }
+//        catch(cv_bridge::Exception& e)
+//        {
+        //std::cout<<"Error"<<std::endl;
+        //return;
+//        }
+        //tracked_images.push_back(image);
+        //tracked_faces.push_back(QImage((uchar*) tracked_images.back().data, tracked_images.back().cols, tracked_images.back().rows,tracked_images.back().step[0], QImage::Format_RGB888));
     }
 
     //tracked_faces.push_back(QImage((uchar*) tracked_images.back().data, tracked_images.back().cols, tracked_images.back().rows,tracked_images.back().step[0], QImage::Format_RGB888));
