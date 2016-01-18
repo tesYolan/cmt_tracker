@@ -225,7 +225,8 @@ void tracker_plugin::updateVisibleFaces()
         try{
         cv_ptr = cv_bridge::toCvShare(r);
         image= cv_ptr->image;
-        cv::imshow("H", image);
+
+        //cv::imshow("H", image);
         }
         catch(cv_bridge::Exception& e)
         {
@@ -233,19 +234,19 @@ void tracker_plugin::updateVisibleFaces()
         return;
         }
         tracked_images.push_back(image);
-        tracked_faces.push_back(QImage((uchar*) tracked_images.back().data, tracked_images.back().cols, tracked_images.back().rows,tracked_images.back().step[0], QImage::Format_RGB888));
+        tracked_faces.push_back(QImage((uchar*) tracked_images.back().data, tracked_images.back().cols, tracked_images.back().rows,tracked_images.back().step[0], QImage::Format_Indexed8));
+
+        ui.tracker_initial_list->addItem(new QListWidgetItem(QIcon(QPixmap::fromImage(tracked_faces.back())), QString::fromUtf8(results.response.names[i].c_str())));
     }
 
     //tracked_faces.push_back(QImage((uchar*) tracked_images.back().data, tracked_images.back().cols, tracked_images.back().rows,tracked_images.back().step[0], QImage::Format_RGB888));
 
     //Now let's add all the values by iterating over a list of items in space
 
-    for (int i = 0; i < results.response.names.size(); i++)
-    {
-
-      ui.tracker_initial_list->addItem(new QListWidgetItem(QIcon(QPixmap::fromImage(tracked_faces[i])), QString::fromUtf8(results.response.names[i].c_str())));
-
-    }
+//    for (int i = 0; i < results.response.names.size(); i++)
+//    {
+//      ui.tracker_initial_list->addItem(new QListWidgetItem(QIcon(QPixmap::fromImage(tracked_faces[i])), QString::fromUtf8(results.response.names[i].c_str())));
+//    }
 
     }
     else
