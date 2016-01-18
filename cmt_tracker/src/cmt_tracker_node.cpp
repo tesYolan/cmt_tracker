@@ -175,7 +175,7 @@ public:
 
         res.names.push_back((*v).name);
 
-        sensor_msgs::ImagePtr masked_image= cv_bridge::CvImage(std_msgs::Header(), "rgb8", (*v).imArchive).toImageMsg();
+        sensor_msgs::ImagePtr masked_image= cv_bridge::CvImage(std_msgs::Header(), "mono8", (*v).imArchive).toImageMsg();
 
 
         //Why not publish the image here and see it's corresponding response regarding how to implement the best form of the system.

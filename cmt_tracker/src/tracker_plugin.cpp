@@ -222,19 +222,18 @@ void tracker_plugin::updateVisibleFaces()
         //r = boost::shared_ptr<sensor_msgs::Image>(im);
         cv_bridge::CvImageConstPtr cv_ptr;
         cv::Mat image;
-
-        //try{
+        try{
         cv_ptr = cv_bridge::toCvShare(r);
         image= cv_ptr->image;
         cv::imshow("H", image);
-//        }
-//        catch(cv_bridge::Exception& e)
-//        {
-        //std::cout<<"Error"<<std::endl;
-        //return;
-//        }
-        //tracked_images.push_back(image);
-        //tracked_faces.push_back(QImage((uchar*) tracked_images.back().data, tracked_images.back().cols, tracked_images.back().rows,tracked_images.back().step[0], QImage::Format_RGB888));
+        }
+        catch(cv_bridge::Exception& e)
+        {
+        std::cout<<"Error"<<std::endl;
+        return;
+        }
+        tracked_images.push_back(image);
+        tracked_faces.push_back(QImage((uchar*) tracked_images.back().data, tracked_images.back().cols, tracked_images.back().rows,tracked_images.back().step[0], QImage::Format_RGB888));
     }
 
     //tracked_faces.push_back(QImage((uchar*) tracked_images.back().data, tracked_images.back().cols, tracked_images.back().rows,tracked_images.back().step[0], QImage::Format_RGB888));
