@@ -53,7 +53,7 @@ void tracker_plugin::initPlugin(qt_gui_cpp::PluginContext& context)
 
 
   // frame = 0;
-  tracker_updated = false;
+  tracker_updated = true;
   tracking_results_updated = false;
   ui.face_choice_method->addItem("Hand Selection Trackings");
   ui.face_choice_method->addItem("Remove on LOST");
