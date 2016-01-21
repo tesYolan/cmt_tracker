@@ -159,7 +159,16 @@ void tracker_plugin::imageCb(const sensor_msgs::ImageConstPtr& msg)
   tracked_image_information.clear();
   for (std::vector<cmt_tracker::Tracker>::iterator v = tracking_results.tracker_results.begin(); v != tracking_results.tracker_results.end() ; ++v)
   {
-    std::string value = (*v).tracker_name.data + "\n" + SSTR((*v).inital_points.data) + "\n" + SSTR((*v).active_points.data);
+    std::string quality;
+    if((*v).quality_results.data)
+    {
+    quality =  "true";
+    }
+    else
+    {
+    quality = "false";
+    }
+    std::string value = (*v).tracker_name.data + "\n" + SSTR((*v).inital_points.data) + "\n" + SSTR((*v).active_points.data)  + "\n" +  quality;
     tracked_image_information.push_back( value );
 
     //Now here if the tracker results is positive then output this as a result of the image other wise update the results.
@@ -349,12 +358,12 @@ void tracker_plugin::on_addToTrack_clicked(QListWidgetItem *item)
   track_location.pixel_lu.y = face_locs.faces[last_selected_item].pixel_lu.y;
   track_location.width.data = face_locs.faces[last_selected_item].width.data;
   track_location.height.data = face_locs.faces[last_selected_item].height.data;
-
+  track_location.tracker_name.data= face_locs.faces[last_selected_item].name.data;
   //Let's create here a name by which it's random. 
 
 
   std::string name;
-  name = "tracker: " + SSTR(tracker_num);
+  //name = "tracker: " + SSTR(tracker_num);
   track_location.tracker_name.data = name; 
 
   tracker_locations_pub.publish(track_location);

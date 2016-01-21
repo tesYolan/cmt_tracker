@@ -23,6 +23,9 @@
 //Service call to reset the values of the images in the system
 #include <cmt_tracker/Clear.h>
 
+#include <cmt_tracker/TrackerConfig.h>
+#include <dynamic_reconfigure/server.h>
+
 #include <stdlib.h>
 #include <time.h>
 
@@ -39,7 +42,9 @@
 //Threading Libraries
 #include <boost/thread.hpp>
 
+#include <sstream>
 
+#define SSTR( x ) dynamic_cast< std::ostringstream & >(( std::ostringstream() << std::dec << x ) ).str()
 
 /**
 The requirements of the this class:
@@ -71,6 +76,9 @@ class TrackerCMT
 //to hold the value of the image
   cv::Mat conversion_mat_;
   cv::Mat frame_gray;
+
+  dynamic_reconfigure::Server<cmt_tracker::TrackerConfig> server;
+  dynamic_reconfigure::Server<cmt_tracker::TrackerConfig>::CallbackType f;
 
   std::vector<cv::Mat> tracked_images;
 
@@ -107,7 +115,9 @@ class TrackerCMT
 
   std::string tracking_method;
   bool setup;
-  int last_count; 
+  int last_count;
+
+  double factor;
   
 
   std::vector<cv::Rect> locations_of_trackers; //for setting the tracking to higher levels.
@@ -150,6 +160,9 @@ public:
     
     tracker_results_pub = nh_.advertise<cmt_tracker::Trackers>("tracker_results", 10);
 
+    f = boost::bind(&TrackerCMT::callback, this, _1, _2);
+
+    server.setCallback(f);
   }
 
   bool clear(cmt_tracker::Clear::Request &req, cmt_tracker::Clear::Response &res)
@@ -244,7 +257,13 @@ public:
       cmt_tracker::Tracker tracker;
       if ((*v).initialized == true && !im_gray.empty())
       {
-        (*v).processFrame(im_gray);
+        tracker.inital_points.data = (*v).num_initial_keypoints;
+        tracker.active_points.data = (*v).num_active_keypoints;
+        tracker.tracker_name.data = (*v).name;
+
+        if(!(*v).tracker_lost)
+        {
+        (*v).processFrame(im_gray,factor);
         cv::Rect rect = (*v).bb_rot.boundingRect();
         quality_of_tracker[quality_update] = (*v).num_active_keypoints;
         quality_update++;
@@ -260,17 +279,19 @@ public:
 
         tracker.width.data = rect.width;
         tracker.height.data = rect.height;
-        tracker.inital_points.data = (*v).num_initial_keypoints;
-        tracker.active_points.data = (*v).num_active_keypoints;
-        tracker.tracker_name.data = (*v).name;
 
-        if (tracker.active_points.data > tracker.inital_points.data / 5)
-        {
-          FILE_LOG(logDEBUG) << "No suitable result";
-          tracker.quality_results.data = true;
-          trackers_results.tracker_results.push_back(tracker);
+          //FILE_LOG(logDEBUG) << "No suitable result";
+        tracker.quality_results.data = true;
+        trackers_results.tracker_results.push_back(tracker);
+
         }
-        else {
+        else
+        {
+          tracker.pixel_lu.x = 0;
+          tracker.pixel_lu.y = 0;
+          tracker.pixel_lu.z = 0;
+          tracker.width.data = 0;
+          tracker.height.data = 0;
           tracker.quality_results.data = false;
           trackers_results.tracker_results.push_back(tracker);
         }
@@ -279,7 +300,10 @@ public:
     tracker_results_pub.publish(trackers_results);
     trackers_results.tracker_results.clear();
   }
-
+  void callback(cmt_tracker::TrackerConfig &config, uint32_t level)
+  {
+    factor = config.factor;
+  }
   void list_of_faces_update(const cmt_tracker::Faces& faces_info)
   {
     face_locs.faces.clear();
@@ -298,8 +322,6 @@ public:
       //Now there must be some way to hold back setting up new tracker;
       cmt.push_back(CMT());
       cmt.back().consensus.estimate_rotation = true;
-      std::string tracker_name = tracker_location.tracker_name.data ;
-      FILE_LOG(logDEBUG)<<"The tracker name is: "<<tracker_name;
 
       srand(time(NULL));
 
@@ -307,14 +329,17 @@ public:
 
       //check tracker id is unique;
 
-      tracker_num = rand() % 10000;
+      tracker_num = rand() % 100000;
+
+      std::string tracker_name = SSTR(tracker_num) ;
 
       cmt.back().initialize(im_gray, rect, tracker_name);
       quality_of_tracker.push_back(cmt.back().num_initial_keypoints);
     }
     else
     {
-      FILE_LOG(logDEBUG) << "Not initialized";
+
+      //FILE_LOG(logDEBUG) << "Not initialized";
     }
   }
 

@@ -19,6 +19,10 @@
 #include <std_msgs/String.h>
 #include <iostream>
 static const std::string OPENCV_WINDOW = "Image window";
+#include <sstream>
+
+#define SSTR( x ) dynamic_cast< std::ostringstream & >(( std::ostringstream() << std::dec << x ) ).str()
+
 class ImageConverter
 {
   cv::Mat conversion_mat_;
@@ -137,7 +141,15 @@ public:
           face_description.quality.data = true;
           face_description.id.data = counter;
           counter++;
-          face_description.name.data = "Name";
+
+          int tracker_num;
+
+        //check tracker id is unique;
+
+        tracker_num = rand() % 10000;
+
+          std::string tracker_name = SSTR(tracker_num) ;
+          face_description.name.data = tracker_name;
           face_description.emotion_states.data = "Neutral";
 
           cmt_face_locations.faces.push_back(face_description);
