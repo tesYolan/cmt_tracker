@@ -248,6 +248,8 @@ public:
     cv::cvtColor(conversion_mat_, frame_gray, CV_BGR2GRAY);
 
     cv::Mat im_gray = frame_gray.clone();
+    //Now let's copy an additional mat to do additional removal.
+    cv::Mat im_masked= frame_gray.clone();
     std::cout << "The number of tracker active is: " << cmt.size() << std::endl;
     int quality_update = 0;
     for (std::vector<CMT>::iterator v = cmt.begin(); v != cmt.end(); ++v)
@@ -265,16 +267,21 @@ public:
         {
         (*v).processFrame(im_gray,factor);
         cv::Rect rect = (*v).bb_rot.boundingRect();
+
+        if (!(*v).tracker_lost)
+        {
+        //Now let's create a mat that masks the image. Then finally if the element is taken out we would add additional trackers.
+        }
+
         quality_of_tracker[quality_update] = (*v).num_active_keypoints;
         quality_update++;
-        FILE_LOG(logDEBUG) << "Area ouptut is: " << rect.area();
+        //FILE_LOG(logDEBUG) << "Area ouptut is: " << rect.area();
         rect = rect & cv::Rect(0, 0, im_gray.size().width, im_gray.size().height);
         tracker.pixel_lu.x = rect.x;
         tracker.pixel_lu.y = rect.y;
         tracker.pixel_lu.z = 0;
 
 
-        FILE_LOG(logDEBUG) << "Returned results with key point: " << cmt.back().num_active_keypoints;
 
 
         tracker.width.data = rect.width;

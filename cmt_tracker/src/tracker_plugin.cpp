@@ -329,16 +329,13 @@ void tracker_plugin::on_MethodChanged(int index)
   if (index == 0)
   {
     nh.setParam("tracking_method", "handtracking");
-    
   }
   else if (index == 1) {
     nh.setParam("tracking_method", "DisappearingFace");
-    
   }
   else
   {
     nh.setParam("tracking_method", "FaceRecognition");
-    
   }
 
 }
