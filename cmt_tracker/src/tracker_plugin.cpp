@@ -68,7 +68,7 @@ void tracker_plugin::initPlugin(qt_gui_cpp::PluginContext& context)
   // // image_publisher = it.advertise("/transformed/images", 1);
 
   //This is a publisher to check initally by setting trackers in the rqt plugin.
-  tracker_locations_pub = (nh).advertise<cmt_tracker::Tracker>("tracking_locations", 10);
+  tracker_locations_pub = (nh).advertise<cmt_tracker::Tracker>("tracking_location", 10);
 
   client = nh.serviceClient<cmt_tracker::Clear>("clear");
   image_client= nh.serviceClient<cmt_tracker::TrackedImages>("get_cmt_rects");
@@ -76,7 +76,7 @@ void tracker_plugin::initPlugin(qt_gui_cpp::PluginContext& context)
 
   //This is subscribed here because of other nodes outside this rqt plugin  set tracker location and thus this extension
   //must show the ability to show different elements in the process.
-  tracker_locations_sub = (nh).subscribe("tracking_locations", 10 , &rqt_tracker_view::tracker_plugin::trackerCb, this);
+  tracker_locations_sub = (nh).subscribe("tracking_location", 10 , &rqt_tracker_view::tracker_plugin::trackerCb, this);
   nh.setParam("tracking_method", "handtracking");
 
   connect(ui.face_choice_method, SIGNAL(currentIndexChanged(int)), this, SLOT(on_MethodChanged(int)));
@@ -207,6 +207,7 @@ void tracker_plugin::updateVisibleFaces()
 
   //Update the last element to the list
   //Sends a service to get all images from the cmt_node.
+  nh.getParam("tracker_updated", tracker_updated);
   if (tracker_updated)
   {
     cmt_tracker::TrackedImages results;

@@ -70,6 +70,49 @@ Suppress all the info coming from the cmt library.
 */
 
 using namespace cmt;
+
+class Face_Detection{
+  public:
+  static std::vector<cv::Rect> facedetect(cv::Mat frame_gray)
+  {
+  cv::CascadeClassifier face_cascade;
+  cv::CascadeClassifier eyes_cascade;
+  std::vector<cv::Rect> faces;
+  bool setup;
+  if ( !face_cascade.load("/usr/share/opencv/haarcascades/haarcascade_frontalface_alt.xml" ) || !eyes_cascade.load("/usr/share/opencv/haarcascades/haarcascade_eye_tree_eyeglasses.xml" ))
+    { setup = false;  };
+    setup = true;
+  if(setup)
+  {
+
+  face_cascade.detectMultiScale( frame_gray, faces, 1.05, 4, 0 | cv::CASCADE_SCALE_IMAGE, cv::Size(40, 40) );
+  //Now add eyes if one desires
+
+  }
+  return faces;
+  }
+  static cmt_tracker::Trackers convert(std::vector<cv::Rect> faces)
+  {
+      cmt_tracker::Trackers tracker_description;
+     for (size_t i = 0; i < faces.size(); i++)
+        {
+
+          cmt_tracker::Tracker face_description;
+          face_description.pixel_lu.x = faces[i].x;
+          face_description.pixel_lu.y = faces[i].y;
+          //Now place coordinates to the value Z from the
+          //depth camera.
+          face_description.pixel_lu.z = 0;
+          face_description.height.data = faces[i].height;
+          face_description.width.data = faces[i].width;
+
+
+          tracker_description.tracker_results.push_back(face_description);
+        }
+        return tracker_description;
+   }
+};
+
 class TrackerCMT
 {
 
@@ -103,6 +146,7 @@ class TrackerCMT
 
   ros::Subscriber face_results;
   ros::Subscriber tracker_subscriber;
+  ros::Subscriber trackers_subscriber;
   ros::Subscriber face_subscriber;
 
   cmt_tracker::Tracker tracker_set;
@@ -112,6 +156,7 @@ class TrackerCMT
   std::vector<CMT> cmt;
   std::vector<int> quality_of_tracker;
 
+  std::vector<int> deletion_values;
 
   std::string tracking_method;
   bool setup;
@@ -150,11 +195,13 @@ public:
 
     //To acquire the list of faces currently in track.
     face_subscriber = (nh_).subscribe("face_locations", 1, &TrackerCMT::list_of_faces_update, this);
-    tracker_locations_pub = (nh_).advertise<cmt_tracker::Tracker>("tracking_locations", 10);
+    tracker_locations_pub = (nh_).advertise<cmt_tracker::Trackers>("tracking_locations", 10);
+
 
     //To acquire commands from this and other nodes to what to set to track.
     // masked_image = cv_bridge::CvImage(std_msgs::Header(), "mono", image_roi).toImageMsg();
-    tracker_subscriber = (nh_).subscribe("tracking_locations", 1, &TrackerCMT::set_tracker, this);
+    tracker_subscriber = (nh_).subscribe("tracking_location", 1, &TrackerCMT::set_tracker, this);
+    tracker_subscriber = (nh_).subscribe("tracking_locations", 1, &TrackerCMT::set_trackers, this);
     image_pub_ = it_.advertise("/transformed/images", 1);
     image_face_pub = it_.advertise("/transformed/faces", 1);
     
@@ -250,8 +297,11 @@ public:
     cv::Mat im_gray = frame_gray.clone();
     //Now let's copy an additional mat to do additional removal.
     cv::Mat im_masked= frame_gray.clone();
+
     std::cout << "The number of tracker active is: " << cmt.size() << std::endl;
     int quality_update = 0;
+    int count=0;
+    deletion_values.clear();
     for (std::vector<CMT>::iterator v = cmt.begin(); v != cmt.end(); ++v)
     {
       //Clear all the previous results relating to the tracker.
@@ -268,10 +318,7 @@ public:
         (*v).processFrame(im_gray,factor);
         cv::Rect rect = (*v).bb_rot.boundingRect();
 
-        if (!(*v).tracker_lost)
-        {
-        //Now let's create a mat that masks the image. Then finally if the element is taken out we would add additional trackers.
-        }
+
 
         quality_of_tracker[quality_update] = (*v).num_active_keypoints;
         quality_update++;
@@ -301,11 +348,39 @@ public:
           tracker.height.data = 0;
           tracker.quality_results.data = false;
           trackers_results.tracker_results.push_back(tracker);
+          deletion_values.push_back(count);
         }
       }
+      count++;
     }
+
+
     tracker_results_pub.publish(trackers_results);
     trackers_results.tracker_results.clear();
+
+    //Now let's deal with removing elements.
+    for (int i=0; i< deletion_values.size(); i++)
+    {
+      remove_tracker(deletion_values[i]);
+    }
+
+    //Now let's deal with the rectangles of the system. It's done here because this would need to be refactored into another stream of code.
+    for (std::vector<CMT>::iterator v = cmt.begin(); v != cmt.end(); ++v)
+    {
+      cv::Rect intersection_area= (*v).bb_rot.boundingRect();
+      cv::Rect normailze = intersection_area & cv::Rect(0, 0, im_masked.size().width, im_masked.size().height);
+
+      cv::Mat mask(normailze.size(), CV_16UC1);
+      mask.setTo(cv::Scalar(5));
+      mask.copyTo(im_masked(normailze));
+
+    }
+
+    //Now let's detect faces in this area.
+    std::vector<cv::Rect> faces= Face_Detection::facedetect(im_masked);
+    cmt_tracker::Trackers track_locs= Face_Detection::convert(faces);
+    tracker_locations_pub.publish(track_locs);
+
   }
   void callback(cmt_tracker::TrackerConfig &config, uint32_t level)
   {
@@ -318,6 +393,7 @@ public:
     {
       face_locs.faces.push_back(faces_info.faces[i]);
     }
+    nh_.setParam("tracker_updated","true");
   }
   void set_tracker(const cmt_tracker::Tracker& tracker_location)
   {
@@ -348,14 +424,23 @@ public:
 
       //FILE_LOG(logDEBUG) << "Not initialized";
     }
+    nh_.setParam("tracker_updated","true");
   }
-
+  void set_trackers(const cmt_tracker::Trackers& tracker_location)
+  {
+    for (int i=0; i< tracker_location.tracker_results.size(); i++)
+    {
+      set_tracker(tracker_location.tracker_results[i]);
+    }
+  }
   void remove_tracker(int index)
   {
     cmt.erase(cmt.begin()+index);
   }
 
 };
+
+
 
 int main(int argc, char** argv)
 {
