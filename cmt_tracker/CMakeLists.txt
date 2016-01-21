@@ -29,7 +29,7 @@ set(tracker_plugin_SRCS
 set(tracker_plugin_HDRS
   include/tracker_plugin.h)
 set(tracker_plugin_UIS
-  src/tracker_plugin.ui)
+  resources/tracker_plugin.ui)
 set(tracker_plugin_INCLUDE_DIRECTORIES
   include
   ${CMAKE_CURRENT_BINARY_DIR})
