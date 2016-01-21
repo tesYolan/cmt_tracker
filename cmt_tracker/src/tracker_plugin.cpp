@@ -9,10 +9,8 @@
 #include <ros/ros.h>
 #include <ros/console.h>
 #include <cmt_tracker/Clear.h>
-#include <cmt_tracker/TrackedImages.h>
 #include <cmt_tracker/Face.h>
 #include <cmt_tracker/Faces.h>
-
 #include <iostream>
 #include <sstream>
 #include <stdlib.h>
@@ -63,9 +61,11 @@ void tracker_plugin::initPlugin(qt_gui_cpp::PluginContext& context)
   image_transport::ImageTransport it(nh);
 
   nh.getParam("camera_topic", subscribe_topic);
+
   face_subscriber = (nh).subscribe("face_locations", 1, &rqt_tracker_view::tracker_plugin::list_of_faces_update, this);
   image_subscriber = it.subscribe(subscribe_topic, 1, &rqt_tracker_view::tracker_plugin::imageCb, this);
   tracked_locations = nh.subscribe("tracker_results", 10 , &rqt_tracker_view::tracker_plugin::tracker_resultsCb, this);
+  
   // // image_publisher = it.advertise("/transformed/images", 1);
 
   //This is a publisher to check initally by setting trackers in the rqt plugin.
@@ -79,24 +79,23 @@ void tracker_plugin::initPlugin(qt_gui_cpp::PluginContext& context)
   //must show the ability to show different elements in the process.
   tracker_locations_sub = (nh).subscribe("tracking_locations", 10 , &rqt_tracker_view::tracker_plugin::trackerCb, this);
   nh.setParam("tracking_method", "handtracking");
+
   connect(ui.face_choice_method, SIGNAL(currentIndexChanged(int)), this, SLOT(on_MethodChanged(int)));
   connect(ui.face_output_list, SIGNAL(itemPressed(QListWidgetItem *)), this, SLOT(on_addToTrack_clicked(QListWidgetItem *)));
   connect(ui.removeAllTracked, SIGNAL(pressed()), this, SLOT(on_removeAllTracked_clicked()));
   connect(ui.removeTracked, SIGNAL(pressed()), this, SLOT(on_removeTracked_clicked()));
   connect(this, SIGNAL(updatefacelist()), this, SLOT(updateVisibleFaces()));
 
+  f = boost::bind(&rqt_tracker_view::tracker_plugin::callback, this , _1, _2);
+  server.setCallback(f);
+  
 
-
-//Set the intial location fo faces to be zero.
-// face_locs.faces
-
-//Now connect the application.
-
-
-//end of initPlugin
 }
 
-
+void tracker_plugin::callback(cmt_tracker::TrackerConfig &config, uint32_t level)
+{
+  //Code to handle the threshold values of the function. 
+}
 void tracker_plugin::imageCb(const sensor_msgs::ImageConstPtr& msg)
 {
   try

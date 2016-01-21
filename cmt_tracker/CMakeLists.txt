@@ -114,10 +114,10 @@ catkin_python_setup()
 ##     and list every .cfg file to be processed
 
 ## Generate dynamic reconfigure parameters in the 'cfg' folder
-# generate_dynamic_reconfigure_options(
-#   cfg/DynReconf1.cfg
+ generate_dynamic_reconfigure_options(
+   cfg/tracker.cfg
 #   cfg/DynReconf2.cfg
-# )
+ )
 
 ###################################
 ## catkin specific configuration ##
@@ -166,16 +166,19 @@ add_executable(face_locator_node src/face_locator_node.cpp)
  target_link_libraries(face_locator_node
    ${catkin_LIBRARIES} ${OpenCV_LIBS}
  )
+
 add_executable(cmt_tracker_node src/cmt_tracker_node.cpp)
 target_link_libraries(cmt_tracker_node ${catkin_LIBRARIES} ${OpenCV_LIBS} cmt)
+
 include_directories(${tracker_plugin_INCLUDE_DIRECTORIES} ${catkin_INCLUDE_DIRS})
 add_library(${PROJECT_NAME} ${tracker_plugin_SRCS} ${tracker_plugin_MOCS} ${tracker_plugin_UIS_H})
 target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES} ${QT_QTCORE_LIBRARY} ${QT_QTGUI_LIBRARY} ${OpenCV_LIBS})
+
 find_package(class_loader)
 class_loader_hide_library_symbols(${PROJECT_NAME})
 ## Add cmake target dependencies of the executable
 ## same as for the library above
-# add_dependencies(cmt_tracker_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+#add_dependencies(cmt_tracker_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencfg)
 
 ## Specify libraries to link a library or executable target against
 

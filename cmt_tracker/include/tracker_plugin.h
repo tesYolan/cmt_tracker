@@ -12,9 +12,19 @@
 #include <sensor_msgs/Image.h>
 #include <cv_bridge/cv_bridge.h>
 #include <sensor_msgs/image_encodings.h>
+
+
 #include <cmt_tracker/Faces.h>
 #include <cmt_tracker/Tracker.h>
 #include <cmt_tracker/Trackers.h>
+
+#include <cmt_tracker/TrackedImages.h>
+
+
+#include <cmt_tracker/TrackerConfig.h>
+#include <dynamic_reconfigure/server.h>
+
+
 #include <vector>
 //The Ui Element Definition
 #include "ui_tracker_plugin.h"
@@ -42,6 +52,8 @@ public:
     ros::ServiceClient client;
     ros::ServiceClient image_client;
     image_transport::Subscriber image_subscriber;
+    dynamic_reconfigure::Server<cmt_tracker::TrackerConfig> server;
+    dynamic_reconfigure::Server<cmt_tracker::TrackerConfig>::CallbackType f;
     // image_transport::Publisher image_publisher;
     // sensor_msgs::ImagePtr image_published;
     // std::string subscribe_topic;
@@ -56,7 +68,8 @@ public:
     virtual void initPlugin(qt_gui_cpp::PluginContext& context);
 
     virtual void shutdownPlugin();
-
+    
+    void callback(cmt_tracker::TrackerConfig &config, uint32_t level);  
 signals:
     void updatefacelist();
 protected slots:
@@ -82,6 +95,8 @@ protected slots:
     void trackerCb(const cmt_tracker::Tracker& tracker_locs);
 
     void tracker_resultsCb(const cmt_tracker::Trackers& tracker_results); 
+
+    
 
 protected:
     std::vector<QImage> face_images;
