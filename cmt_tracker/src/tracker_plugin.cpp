@@ -207,7 +207,7 @@ void tracker_plugin::updateVisibleFaces()
 
   //Update the last element to the list
   //Sends a service to get all images from the cmt_node.
-  nh.getParam("tracker_updated", tracker_updated);
+  //nh.getParam("tracker_updated", tracker_updated);
   if (tracker_updated)
   {
     cmt_tracker::TrackedImages results;

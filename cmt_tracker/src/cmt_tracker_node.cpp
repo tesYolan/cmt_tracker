@@ -393,7 +393,7 @@ public:
     {
       face_locs.faces.push_back(faces_info.faces[i]);
     }
-    nh_.setParam("tracker_updated","true");
+    //nh_.setParam("tracker_updated",true);
   }
   void set_tracker(const cmt_tracker::Tracker& tracker_location)
   {
@@ -424,7 +424,7 @@ public:
 
       //FILE_LOG(logDEBUG) << "Not initialized";
     }
-    nh_.setParam("tracker_updated","true");
+    //nh_.setParam("tracker_updated",true);
   }
   void set_trackers(const cmt_tracker::Trackers& tracker_location)
   {
