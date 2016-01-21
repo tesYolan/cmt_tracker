@@ -13,8 +13,7 @@
 #include <cmt_tracker/Faces.h>
 #include <iostream>
 #include <sstream>
-#include <stdlib.h>
-#include <time.h>
+
 
 #define SSTR( x ) dynamic_cast< std::ostringstream & >(( std::ostringstream() << std::dec << x ) ).str()
 
@@ -352,12 +351,7 @@ void tracker_plugin::on_addToTrack_clicked(QListWidgetItem *item)
   track_location.height.data = face_locs.faces[last_selected_item].height.data;
 
   //Let's create here a name by which it's random. 
-  srand(time(NULL));
 
-  int tracker_num; 
-
-  //check tracker id is unique; 
-  tracker_num = rand() % 10000;
 
   std::string name;
   name = "tracker: " + SSTR(tracker_num);

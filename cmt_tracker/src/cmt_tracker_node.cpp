@@ -23,6 +23,9 @@
 //Service call to reset the values of the images in the system
 #include <cmt_tracker/Clear.h>
 
+#include <stdlib.h>
+#include <time.h>
+
 // CMT libraryies
 #include "CMT.h"
 #include "gui.h"
@@ -297,6 +300,15 @@ public:
       cmt.back().consensus.estimate_rotation = true;
       std::string tracker_name = tracker_location.tracker_name.data ;
       FILE_LOG(logDEBUG)<<"The tracker name is: "<<tracker_name;
+
+      srand(time(NULL));
+
+      int tracker_num;
+
+      //check tracker id is unique;
+
+      tracker_num = rand() % 10000;
+
       cmt.back().initialize(im_gray, rect, tracker_name);
       quality_of_tracker.push_back(cmt.back().num_initial_keypoints);
     }
