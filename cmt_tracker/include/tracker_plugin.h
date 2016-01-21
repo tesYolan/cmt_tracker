@@ -116,6 +116,7 @@ protected:
     Ui::tracker_plugin ui;
     QWidget* widget_;
     bool tracker_updated;
+    bool trackers_updated; 
     bool tracking_results_updated; 
 
 

@@ -53,6 +53,7 @@ void tracker_plugin::initPlugin(qt_gui_cpp::PluginContext& context)
 
   // frame = 0;
   tracker_updated = true;
+  trackers_updated = true; 
   tracking_results_updated = false;
   ui.face_choice_method->addItem("Hand Selection Trackings");
   ui.face_choice_method->addItem("Remove on LOST");
@@ -143,17 +144,17 @@ void tracker_plugin::imageCb(const sensor_msgs::ImageConstPtr& msg)
 
   //The logic for subscribed works like this; (if there has been change in the value then we add it to the list other wise we let it be)
 
-  if (tracker_updated)
-  {
-  //Now let get the service call to the system.
+  // if (tracker_updated)
+  // {
+  // //Now let get the service call to the system.
 
-      //Now let's iterate over the results and rename the systems.
+  //     //Now let's iterate over the results and rename the systems.
 
-    tracked_images.push_back(conversion_mat_(cv::Rect(track_published.pixel_lu.x, track_published.pixel_lu.y, track_published.width.data,
-                             track_published.height.data)).clone());
-    tracked_faces.push_back(QImage((uchar*) tracked_images.back().data, tracked_images.back().cols, tracked_images.back().rows,
-                                   tracked_images.back().step[0], QImage::Format_RGB888));
-  }
+  //   tracked_images.push_back(conversion_mat_(cv::Rect(track_published.pixel_lu.x, track_published.pixel_lu.y, track_published.width.data,
+  //                            track_published.height.data)).clone());
+  //   tracked_faces.push_back(QImage((uchar*) tracked_images.back().data, tracked_images.back().cols, tracked_images.back().rows,
+  //                                  tracked_images.back().step[0], QImage::Format_RGB888));
+  // }
   tracked_image_mats.clear();
   tracked_image_results.clear();
   tracked_image_information.clear();
@@ -207,8 +208,8 @@ void tracker_plugin::updateVisibleFaces()
 
   //Update the last element to the list
   //Sends a service to get all images from the cmt_node.
-  //nh.getParam("tracker_updated", tracker_updated);
-  if (tracker_updated)
+  nh.getParam("tracker_updated", trackers_updated);
+  if (trackers_updated)
   {
     cmt_tracker::TrackedImages results;
 
@@ -265,7 +266,7 @@ void tracker_plugin::updateVisibleFaces()
     }
 
   }
-  tracker_updated = false;
+  nh.setParam("tracker_updated", "false"); 
 
   int count_info = 0 ;
   for (std::vector<QImage>::iterator v = tracked_image_results.begin(); v != tracked_image_results.end(); ++v)
