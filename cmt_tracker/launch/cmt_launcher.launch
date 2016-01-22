@@ -1,5 +1,5 @@
 <launch>
-<arg name="choose_web_cam" default="True"/>
+<arg name="choose_web_cam" default="False"/>
 <param name="tracking_method" value="handtracking"/>
 <param name="tracker_updated" value="1"/>
 <group if="$(arg choose_web_cam)">
