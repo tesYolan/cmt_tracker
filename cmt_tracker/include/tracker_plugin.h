@@ -51,6 +51,7 @@ public:
     ros::Subscriber tracked_locations; 
     ros::ServiceClient client;
     ros::ServiceClient image_client;
+    ros::ServiceClient check_update;
     image_transport::Subscriber image_subscriber;
     dynamic_reconfigure::Server<cmt_tracker::TrackerConfig> server;
     dynamic_reconfigure::Server<cmt_tracker::TrackerConfig>::CallbackType f;
@@ -69,7 +70,8 @@ public:
 
     virtual void shutdownPlugin();
     
-    void callback(cmt_tracker::TrackerConfig &config, uint32_t level);  
+    void callback(cmt_tracker::TrackerConfig &config, uint32_t level);
+
 signals:
     void updatefacelist();
 protected slots:
@@ -96,7 +98,7 @@ protected slots:
 
     void tracker_resultsCb(const cmt_tracker::Trackers& tracker_results); 
 
-    
+
 
 protected:
     std::vector<QImage> face_images;

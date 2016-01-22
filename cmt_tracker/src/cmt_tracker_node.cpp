@@ -22,6 +22,7 @@
 
 //Service call to reset the values of the images in the system
 #include <cmt_tracker/Clear.h>
+#include <cmt_tracker/Update.h>
 
 #include <cmt_tracker/TrackerConfig.h>
 #include <dynamic_reconfigure/server.h>
@@ -158,6 +159,7 @@ class TrackerCMT
 
   ros::ServiceServer clear_service;
   ros::ServiceServer image_service;
+  ros::ServiceServer update_service;
 
   image_transport::ImageTransport it_;
   image_transport::Subscriber image_sub_;
@@ -167,8 +169,10 @@ class TrackerCMT
   ros::Publisher tracker_results_pub;
 
   ros::Subscriber face_results;
+
   ros::Subscriber tracker_subscriber;
   ros::Subscriber trackers_subscriber;
+
   ros::Subscriber face_subscriber;
 
   cmt_tracker::Tracker tracker_set;
@@ -194,7 +198,7 @@ class TrackerCMT
   int frame_counters;
   int frame_previous;
 
-
+  bool update_ui;
   //Parameters for the CMT part of the code.
 public:
   TrackerCMT() : it_(nh_)
@@ -207,6 +211,7 @@ public:
     last_count=0; 
     frame_counters = 0;
     frame_previous = 0;
+    update_ui= false;
     //To acquire the image that we will be doing processing on
     image_sub_ = it_.subscribe(subscribe_topic, 1, &TrackerCMT::imageCb, this);
 
@@ -214,6 +219,7 @@ public:
     //Service to deal with the image systems.
     clear_service = nh_.advertiseService("clear", &TrackerCMT::clear, this);
     image_service = nh_.advertiseService("get_cmt_rects", &TrackerCMT::getTrackedImages, this);
+    update_service = nh_.advertiseService("update", &TrackerCMT::updated, this);
 
     //To acquire the list of faces currently in track.
     face_subscriber = (nh_).subscribe("face_locations", 1, &TrackerCMT::list_of_faces_update, this);
@@ -223,7 +229,7 @@ public:
     //To acquire commands from this and other nodes to what to set to track.
     // masked_image = cv_bridge::CvImage(std_msgs::Header(), "mono", image_roi).toImageMsg();
     tracker_subscriber = (nh_).subscribe("tracking_location", 1, &TrackerCMT::set_tracker, this);
-    tracker_subscriber = (nh_).subscribe("tracking_locations", 1, &TrackerCMT::set_trackers, this);
+    trackers_subscriber = (nh_).subscribe("tracking_locations", 1, &TrackerCMT::set_trackers, this);
     image_pub_ = it_.advertise("/transformed/images", 1);
     image_face_pub = it_.advertise("/transformed/faces", 1);
     
@@ -245,6 +251,17 @@ public:
     else
     {
        res.cleared = false;
+    }
+    return true;
+  }
+  bool updated(cmt_tracker::Update::Request &req, cmt_tracker::Update::Response &res)
+  {
+    res.update.data = false;
+    if (update_ui)
+    {
+    res.update.data = true;
+    update_ui= false;
+
     }
     return true;
   }
@@ -276,6 +293,7 @@ public:
   */
   void imageCb(const sensor_msgs::ImageConstPtr& msg)
   {
+  update_ui = false;
     //TODO why not just subscribe to the MONO image and skip all this handling. A way must be included to do that functionality. 
     try
     {
@@ -380,32 +398,41 @@ public:
 
 
     tracker_results_pub.publish(trackers_results);
-    
 
-    //Now let's deal with removing elements.
+    //Now Let's do different methods based on what parameters are set:
+
+    //if delete on lost is selected.
+    std::string value;
+    nh_.getParam("tracking_method",value);
+
+    if(value.compare("DisappearingFace") == 0)
+    {
+      deleteOnLost(rectLocs);
+    }
+    else if(value.compare("FaceRecognition") == 0)
+    {
+      // Incoporate face tracking fucntinoality here.
+    }
+
+  trackers_results.tracker_results.clear();
+
+  }
+  void deleteOnLost(std::vector<cv::Rect> rectLocs)
+  {
     for (int i=0; i< deletion_values.size(); i++)
     {
       remove_tracker(deletion_values[i]);
     }
-    //nh.setParam("tracker_updated","true");
 
-    //Now let's deal with the rectangles of the system. It's done here because this would need to be refactored into another stream of code.
-    // for (std::vector<CMT>::iterator v = cmt.begin(); v != cmt.end(); ++v)
-    // {
-    //   cv::Rect intersection_area= (*v).bb_rot.boundingRect();
-    //   cv::Rect normailze = intersection_area & cv::Rect(0, 0, im_masked.size().width, im_masked.size().height);
+    if(deletion_values.size() > 0)
+      update_ui=true;
 
-    //   cv::Mat mask(normailze.size(), CV_16UC1);
-    //   mask.setTo(cv::Scalar(5));
-    //   mask.copyTo(im_masked(normailze));
 
-    // }
-
-    //Now let's detect faces in this area.
-    // std::vector<cv::Rect> faces= Face_Detection::facedetect(im_masked);
     cmt_tracker::Trackers track_locs= Face_Detection::returnOverlapping(rectLocs,face_locs);
+
+    if(track_locs.tracker_results.size() > 0)
+      update_ui=true;
     tracker_locations_pub.publish(track_locs);
-    trackers_results.tracker_results.clear();
 
   }
   void callback(cmt_tracker::TrackerConfig &config, uint32_t level)
@@ -431,26 +458,19 @@ public:
       //Now there must be some way to hold back setting up new tracker;
       cmt.push_back(CMT());
       cmt.back().consensus.estimate_rotation = true;
-
       srand(time(NULL));
-
       int tracker_num;
-
       //check tracker id is unique;
-
       tracker_num = rand() % 100000;
-
       std::string tracker_name = SSTR(tracker_num) ;
-
       cmt.back().initialize(im_gray, rect, tracker_name);
       quality_of_tracker.push_back(cmt.back().num_initial_keypoints);
     }
     else
     {
-
       //FILE_LOG(logDEBUG) << "Not initialized";
     }
-    nh_.setParam("tracker_updated","true");
+    //nh_.setParam("tracker_updated","true");
   }
   void set_trackers(const cmt_tracker::Trackers& tracker_location)
   {
@@ -458,12 +478,12 @@ public:
     {
       set_tracker(tracker_location.tracker_results[i]);
     }
-    nh_.setParam("tracker_updated","true");
+
   }
   void remove_tracker(int index)
   {
     cmt.erase(cmt.begin()+index);
-    nh_.setParam("tracker_updated","true"); 
+
   }
 
 };

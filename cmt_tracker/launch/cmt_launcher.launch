@@ -1,7 +1,7 @@
 <launch>
 <arg name="choose_web_cam" default="True"/>
 <param name="tracking_method" value="handtracking"/>
-<param name="tracker_updated" type="bool" value="false"/>
+<param name="tracker_updated" value="1"/>
 <group if="$(arg choose_web_cam)">
 <param name= "usb_cam/pixel_format" value="yuyv"/>
 <param name= "camera_topic" value="/usb_cam/image_raw"/>

@@ -116,7 +116,7 @@ public:
       cv::cvtColor(conversion_mat_, frame_gray, cv::COLOR_BGR2GRAY);
       cv::equalizeHist( frame_gray, frame_gray );
 
-      face_cascade.detectMultiScale( frame_gray, faces, 1.05, 4, 0 | cv::CASCADE_SCALE_IMAGE, cv::Size(40, 40) );
+      face_cascade.detectMultiScale( frame_gray, faces, 1.1, 2, 0| cv::CASCADE_SCALE_IMAGE, cv::Size(30, 30) );
 
 
       //TODO: namespace mapping to the system.
@@ -144,31 +144,25 @@ public:
 
           int tracker_num;
 
-        //check tracker id is unique;
+        //TODO check tracker id is unique;
 
-        tracker_num = rand() % 10000;
+          tracker_num = rand() % 10000;
 
           std::string tracker_name = SSTR(tracker_num) ;
           face_description.name.data = tracker_name;
           face_description.emotion_states.data = "Neutral";
 
           cmt_face_locations.faces.push_back(face_description);
-
-          // ros::Rate rate(2);
-
         }
         faces_locations.publish(cmt_face_locations);
         cmt_face_locations.faces.clear();
       }
-      else if(tracking.compare("sucessiveMA") == 0)
+      else if(tracking.compare("DisappearingFace") == 0)
       {
         ROS_DEBUG("Using Include Eye Results to stand in locations");
         std::cout<<"Eyes Detection: Using"<<std::endl; 
         for (size_t i = 0; i < faces.size(); i++)
         {
-
-          // Now here what is different is to take
-          //
           cv::Mat face_Frame(frame_gray(faces[i])); 
           // cv::cvtColor( frame, frame_gray, COLOR_BGR2GRAY );
           // cv::equalizeHist( frame_gray, frame_gray );
@@ -176,15 +170,12 @@ public:
 
           //Now if the above doesn't bring up two eyes then skip 
           //it 
-          size_t eye_num= 2; 
+          size_t eye_num= 1;
           if(eyes.size() == eye_num)
           {
           cmt_tracker::Face face_description;
-
           face_description.pixel_lu.x = faces[i].x;
           face_description.pixel_lu.y = faces[i].y;
-          //Now place coordinates to the value Z from the
-          //depth camera.
           face_description.pixel_lu.z = 0;
           face_description.height.data = faces[i].height;
           face_description.width.data = faces[i].width;
@@ -196,7 +187,7 @@ public:
 
           cmt_face_locations.faces.push_back(face_description);
           }
-          // ros::Rate rate(2);
+
 
         }
         faces_locations.publish(cmt_face_locations);

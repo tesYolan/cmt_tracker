@@ -82,6 +82,7 @@ catkin_python_setup()
    FILES
    Clear.srv
    TrackedImages.srv
+   Update.srv
  )
 
 ## Generate actions in the 'action' folder

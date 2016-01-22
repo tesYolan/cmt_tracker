@@ -9,6 +9,7 @@
 #include <ros/ros.h>
 #include <ros/console.h>
 #include <cmt_tracker/Clear.h>
+#include <cmt_tracker/Update.h>
 #include <cmt_tracker/Face.h>
 #include <cmt_tracker/Faces.h>
 #include <iostream>
@@ -73,7 +74,7 @@ void tracker_plugin::initPlugin(qt_gui_cpp::PluginContext& context)
 
   client = nh.serviceClient<cmt_tracker::Clear>("clear");
   image_client= nh.serviceClient<cmt_tracker::TrackedImages>("get_cmt_rects");
-
+  check_update= nh.serviceClient<cmt_tracker::Update>("update");
 
   //This is subscribed here because of other nodes outside this rqt plugin  set tracker location and thus this extension
   //must show the ability to show different elements in the process.
@@ -135,6 +136,7 @@ void tracker_plugin::imageCb(const sensor_msgs::ImageConstPtr& msg)
   //get the data's here sequentially.
   mat_images.clear();
   face_images.clear();
+
   for (std::vector<cmt_tracker::Face>::iterator v = face_locs.faces.begin(); v != face_locs.faces.end() ; ++v)
   {
     mat_images.push_back(conversion_mat_(cv::Rect((*v).pixel_lu.x, (*v).pixel_lu.y, (*v).width.data, (*v).height.data)).clone());
@@ -199,36 +201,29 @@ void tracker_plugin::updateVisibleFaces()
 {
   ui.face_output_list->clear();
   ui.tracker_output_list->clear();
-
-
   for (std::vector<QImage>::iterator v = face_images.begin(); v != face_images.end(); ++v)
   {
     ui.face_output_list->addItem(new QListWidgetItem(QIcon(QPixmap::fromImage(*v)), "Faces"));
   }
-
   //Update the last element to the list
   //Sends a service to get all images from the cmt_node.
-  nh.getParam("tracker_updated", trackers_updated);
-  if (trackers_updated)
+  cmt_tracker::Update up;
+  if(false)
+  {
+  std_msgs::Bool value= up.response.update;
+  std::cout<<"value: "<<(bool)value.data<<std::endl;
+  if (false)
   {
     cmt_tracker::TrackedImages results;
-
+    //std::cout<<"results: "<<up.response.update.data<<std::endl;
     if(image_client.call(results))
-     //Query the images from the CMT tracker.
     {
     ui.tracker_initial_list->clear();
-
-    //CVMAT list of the faces.
     tracked_images.clear();
-
-    //QIMage list of tracked results
     tracked_faces.clear();
-    //Now how do we get the items from the list of indexes.
-
     for (int i = 0; i < results.response.image.size(); i++)
     {
         sensor_msgs::Image im = results.response.image[i];
-
         sensor_msgs::ImagePtr  r= boost::shared_ptr<sensor_msgs::Image>(boost::make_shared<sensor_msgs::Image>(im));
         //r = boost::shared_ptr<sensor_msgs::Image>(im);
         cv_bridge::CvImageConstPtr cv_ptr;
@@ -236,7 +231,6 @@ void tracker_plugin::updateVisibleFaces()
         try{
         cv_ptr = cv_bridge::toCvShare(r);
         image= cv_ptr->image;
-
         //cv::imshow("H", image);
         }
         catch(cv_bridge::Exception& e)
@@ -246,28 +240,16 @@ void tracker_plugin::updateVisibleFaces()
         }
         tracked_images.push_back(image);
         tracked_faces.push_back(QImage((uchar*) tracked_images.back().data, tracked_images.back().cols, tracked_images.back().rows,tracked_images.back().step[0], QImage::Format_Indexed8));
-
         ui.tracker_initial_list->addItem(new QListWidgetItem(QIcon(QPixmap::fromImage(tracked_faces.back())), QString::fromUtf8(results.response.names[i].c_str())));
     }
-
-    //tracked_faces.push_back(QImage((uchar*) tracked_images.back().data, tracked_images.back().cols, tracked_images.back().rows,tracked_images.back().step[0], QImage::Format_RGB888));
-
-    //Now let's add all the values by iterating over a list of items in space
-
-//    for (int i = 0; i < results.response.names.size(); i++)
-//    {
-//      ui.tracker_initial_list->addItem(new QListWidgetItem(QIcon(QPixmap::fromImage(tracked_faces[i])), QString::fromUtf8(results.response.names[i].c_str())));
-//    }
-
     }
     else
     {
       //DISPLAY ERROR in the SYSTEM.
     }
+  }
 
   }
-  nh.setParam("tracker_updated", "false"); 
-
   int count_info = 0 ;
   for (std::vector<QImage>::iterator v = tracked_image_results.begin(); v != tracked_image_results.end(); ++v)
   {
@@ -328,8 +310,11 @@ void tracker_plugin::on_MethodChanged(int index)
   // QString topic = ui.face_choice_method->itemData(ui.face_choice_method->currentIndex());
   // tracking_method = index;
   // std::cout << "The Index is:" << index <<std::endl;
+  //let's clear elements;
+
   if (index == 0)
   {
+
     nh.setParam("tracking_method", "handtracking");
   }
   else if (index == 1) {
@@ -347,10 +332,8 @@ void tracker_plugin::on_MethodChanged(int index)
  */
 void tracker_plugin::on_addToTrack_clicked(QListWidgetItem *item)
 {
-
+  std::cout<<"Reaches ehre"<<std::endl;
   int last_selected_item = ui.face_output_list->currentRow();
-
-
   //Now here one publishes the last selected item in the list.
 
   track_location.pixel_lu.x = face_locs.faces[last_selected_item].pixel_lu.x;
@@ -358,12 +341,7 @@ void tracker_plugin::on_addToTrack_clicked(QListWidgetItem *item)
   track_location.width.data = face_locs.faces[last_selected_item].width.data;
   track_location.height.data = face_locs.faces[last_selected_item].height.data;
   track_location.tracker_name.data= face_locs.faces[last_selected_item].name.data;
-  //Let's create here a name by which it's random. 
-
-
-  std::string name;
-  //name = "tracker: " + SSTR(tracker_num);
-  track_location.tracker_name.data = name; 
+  //Let's create here a name by which it's random.
 
   tracker_locations_pub.publish(track_location);
 }
