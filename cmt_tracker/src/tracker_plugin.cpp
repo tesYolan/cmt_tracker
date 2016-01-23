@@ -89,6 +89,8 @@ void tracker_plugin::initPlugin(qt_gui_cpp::PluginContext& context)
 
   f = boost::bind(&rqt_tracker_view::tracker_plugin::callback, this , _1, _2);
   server.setCallback(f);
+
+
   
 
 }
@@ -311,14 +313,28 @@ void tracker_plugin::on_MethodChanged(int index)
   // tracking_method = index;
   // std::cout << "The Index is:" << index <<std::endl;
   //let's clear elements;
-
+  conf.doubles.clear(); 
   if (index == 0)
   {
 
     nh.setParam("tracking_method", "handtracking");
+      double_param.name = "factor";
+      double_param.value = 0 ;
+      conf.doubles.push_back(double_param);
+
+      srv_req.config = conf;  
+      ros::service::call("/cmt_tracker_node/set_parameters", srv_req, srv_resp);
+      std::cout<<"reaches here"<<std::endl; 
   }
   else if (index == 1) {
     nh.setParam("tracking_method", "DisappearingFace");
+      double_param.name = "factor";
+      double_param.value = 50 ;
+      conf.doubles.push_back(double_param);
+
+      srv_req.config = conf;  
+      ros::service::call("/cmt_tracker_node/set_parameters", srv_req, srv_resp);
+      std::cout<<"reaches here"<<std::endl; 
   }
   else
   {

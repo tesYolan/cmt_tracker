@@ -24,6 +24,9 @@
 #include <cmt_tracker/TrackerConfig.h>
 #include <dynamic_reconfigure/server.h>
 
+#include <dynamic_reconfigure/DoubleParameter.h>
+#include <dynamic_reconfigure/Reconfigure.h>
+#include <dynamic_reconfigure/Config.h>
 
 #include <vector>
 //The Ui Element Definition
@@ -55,6 +58,11 @@ public:
     image_transport::Subscriber image_subscriber;
     dynamic_reconfigure::Server<cmt_tracker::TrackerConfig> server;
     dynamic_reconfigure::Server<cmt_tracker::TrackerConfig>::CallbackType f;
+
+    dynamic_reconfigure::ReconfigureRequest srv_req;
+    dynamic_reconfigure::ReconfigureResponse srv_resp;
+    dynamic_reconfigure::DoubleParameter double_param;
+    dynamic_reconfigure::Config conf;
     // image_transport::Publisher image_publisher;
     // sensor_msgs::ImagePtr image_published;
     // std::string subscribe_topic;
