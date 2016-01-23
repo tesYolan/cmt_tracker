@@ -23,7 +23,7 @@ static const std::string OPENCV_WINDOW = "Image window";
 
 #define SSTR( x ) dynamic_cast< std::ostringstream & >(( std::ostringstream() << std::dec << x ) ).str()
 
-class ImageConverter
+class FacesLocator
 {
   cv::Mat conversion_mat_;
   int counter;
@@ -44,14 +44,14 @@ class ImageConverter
   std_msgs::String tracking_method;
   bool setup;
 public:
-  ImageConverter()
+  FacesLocator()
     : it_(nh_)
   {
     counter = 0;
     // Subscribe to input video feed and publish output video feed
     nh_.getParam("camera_topic", subscribe_topic);
     image_sub_ = it_.subscribe(subscribe_topic, 1,
-                               &ImageConverter::imageCb, this);
+                               &FacesLocator::imageCb, this);
     // image_pub_ = it_.advertise("/image_converter/output_video", 1);
     faces_locations = nh_.advertise<cmt_tracker::Faces>("face_locations", 10);
     //Later refactor this to load from the xml documents of the file.
@@ -63,7 +63,7 @@ public:
     nh_.getParam("tracker_set_time", time_sec);
   }
 
-  ~ImageConverter()
+  ~FacesLocator()
   {
     // cv::destroyWindow(OPENCV_WINDOW);
   }
@@ -157,7 +157,7 @@ public:
         faces_locations.publish(cmt_face_locations);
         cmt_face_locations.faces.clear();
       }
-      else if(tracking.compare("DisappearingFace") == 0)
+      else if(tracking.compare("mustbeface") == 0)
       {
         ROS_DEBUG("Using Include Eye Results to stand in locations");
         std::cout<<"Eyes Detection: Using"<<std::endl; 
@@ -217,7 +217,7 @@ public:
 int main(int argc, char** argv)
 {
   ros::init(argc, argv, "face_locator");
-  ImageConverter ic;
+  FacesLocator ic;
   ros::spin();
   return 0;
 }

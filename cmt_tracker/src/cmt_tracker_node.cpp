@@ -1,140 +1,7 @@
-//This is the base file that will handle all the relevant part of processing
 
-//Messages for holding tracker and face locations
-#include <cmt_tracker/Tracker.h>
-#include <cmt_tracker/Trackers.h>
-#include <cmt_tracker/Face.h>
-#include <cmt_tracker/Faces.h>
-#include <cmt_tracker/TrackedImages.h>
-
-//OpenCV libraries
-#include <opencv2/core/core.hpp>
-#include <opencv2/objdetect/objdetect.hpp>
-#include <opencv2/imgproc/imgproc.hpp>
-#include <opencv2/highgui/highgui.hpp>
-
-//ROS - OpenCV libraries
-#include <image_transport/image_transport.h>
-#include <sensor_msgs/Image.h>
-#include <cv_bridge/cv_bridge.h>
-#include <sensor_msgs/image_encodings.h>
-//#include <sensor_msgs/ImageConstPtr.h>
-
-//Service call to reset the values of the images in the system
-#include <cmt_tracker/Clear.h>
-#include <cmt_tracker/Update.h>
-
-#include <cmt_tracker/TrackerConfig.h>
-#include <dynamic_reconfigure/server.h>
-
-#include <stdlib.h>
-#include <time.h>
-
-// CMT libraryies
-#include "CMT.h"
-#include "gui.h"
-#ifdef __GNUC__
-#include <getopt.h>
-#else
-#include "getopt/getopt.h"
-#endif
-// CMT Libraries End
-
-//Threading Libraries
-#include <boost/thread.hpp>
-
-#include <sstream>
-
-#define SSTR( x ) dynamic_cast< std::ostringstream & >(( std::ostringstream() << std::dec << x ) ).str()
-
-/**
-The requirements of the this class:
-1. This the function spawns the CMT instances.
-  1.1 This is the fucntion that initalized.
-  1.2 This is the one that publishes the location of the tracker results to the system.
-  
-
-2. This is the fucntion that holds parameters for the tracker configuration and the one that would be modified when changes are made the plugin.
-  2.1 When a person changes the configuration in the parameter server; this fucntion must change the way it performs it's tasks.
-  2.2 When the CMT is initialized it's  must get the parameters from the systme so that it would perfrom in house calculation to maintain decent results.
-  2.3 The tracking results are maintained here and updated correspondingly.
-
-3. THIS FUNCTION MUST BE THREADED.
-
-What do i need to do?
-
-Make this function handle the processing of the instances of cmt.
-Make this function have nothing to do with any rules.
-Make this function configurable from outside with parameters.
-Suppress all the info coming from the cmt library. 
-
-*/
 
 using namespace cmt;
 
-class Face_Detection{
-  public:
-  static std::vector<cv::Rect> facedetect(cv::Mat frame_gray)
-  {
-  cv::CascadeClassifier face_cascade;
-  cv::CascadeClassifier eyes_cascade;
-  std::vector<cv::Rect> faces;
-  bool setup;
-  if ( !face_cascade.load("/usr/share/opencv/haarcascades/haarcascade_frontalface_alt.xml" ) || !eyes_cascade.load("/usr/share/opencv/haarcascades/haarcascade_eye_tree_eyeglasses.xml" ))
-    { setup = false;  };
-    setup = true;
-  if(setup)
-  {
-
-  face_cascade.detectMultiScale( frame_gray, faces, 1.05, 4, 0 | cv::CASCADE_SCALE_IMAGE, cv::Size(40, 40) );
-  //Now add eyes if one desires
-
-  }
-  return faces;
-  }
-  static cmt_tracker::Trackers convert(std::vector<cv::Rect> faces)
-  {
-      cmt_tracker::Trackers tracker_description;
-     for (size_t i = 0; i < faces.size(); i++)
-        {
-
-          cmt_tracker::Tracker face_description;
-          face_description.pixel_lu.x = faces[i].x;
-          face_description.pixel_lu.y = faces[i].y;
-          //Now place coordinates to the value Z from the
-          //depth camera.
-          face_description.pixel_lu.z = 0;
-          face_description.height.data = faces[i].height;
-          face_description.width.data = faces[i].width;
-
-
-          tracker_description.tracker_results.push_back(face_description);
-        }
-        return tracker_description;
-   }
-   static cmt_tracker::Trackers returnOverlapping(std::vector<cv::Rect> cmt_locations, cmt_tracker::Faces facelocs)
-   {
-    std::vector<cv::Rect> not_overlapped; 
-    //This is wrote to avoid calling face detect algorithm multiple times in this application. So, we check for overlap between the cmt_locations 
-    //and the facelocs (found from the face_locator node) and then if there are new values we push it note the rect and hold it in a new rect. 
-    for (int i = 0; i < facelocs.faces.size(); i++)
-    {
-      cv::Rect area_overlap(facelocs.faces[i].pixel_lu.x, facelocs.faces[i].pixel_lu.y, facelocs.faces[i].width.data, facelocs.faces[i].height.data);
-      bool no_overlap= false; 
-      for (int j=0; j< cmt_locations.size(); j++)
-      {
-        //if it overlaps with the one then break. 
-        no_overlap= (area_overlap & cmt_locations[j]).area() > 0; 
-        if(no_overlap)
-          break; 
-      }
-      if(!no_overlap)
-        not_overlapped.push_back(area_overlap);
-      //if doesn't overlap then break. 
-    }
-    return convert(not_overlapped);
-   }
-};
 
 class TrackerCMT
 {
@@ -182,7 +49,7 @@ class TrackerCMT
   std::vector<CMT> cmt;
   std::vector<int> quality_of_tracker;
 
-  std::vector<int> deletion_values;
+  std::vector<int> poorly_tracked;
 
   std::string tracking_method;
   bool setup;
@@ -337,31 +204,24 @@ public:
     cv::Mat im_gray = frame_gray.clone();
     //Now let's copy an additional mat to do additional removal.
     cv::Mat im_masked= frame_gray.clone();
-
     std::cout << "The number of tracker active is: " << cmt.size() << std::endl;
     int quality_update = 0;
     int count=0;
-    deletion_values.clear();
-    std::vector<cv::Rect> rectLocs; 
+    poorly_tracked.clear();
+    std::vector<cv::Rect> tracked; 
     for (std::vector<CMT>::iterator v = cmt.begin(); v != cmt.end(); ++v)
     {
-      //Clear all the previous results relating to the tracker.
-
       cmt_tracker::Tracker tracker;
       if ((*v).initialized == true && !im_gray.empty())
       {
         tracker.inital_points.data = (*v).num_initial_keypoints;
         tracker.active_points.data = (*v).num_active_keypoints;
         tracker.tracker_name.data = (*v).name;
-
         if(!(*v).tracker_lost)
         {
         (*v).processFrame(im_gray,factor);
         cv::Rect rect = (*v).bb_rot.boundingRect();
-        rectLocs.push_back(rect);
-
-
-
+        tracked.push_back(rect);
         quality_of_tracker[quality_update] = (*v).num_active_keypoints;
         quality_update++;
         //FILE_LOG(logDEBUG) << "Area ouptut is: " << rect.area();
@@ -369,17 +229,10 @@ public:
         tracker.pixel_lu.x = rect.x;
         tracker.pixel_lu.y = rect.y;
         tracker.pixel_lu.z = 0;
-
-
-
-
         tracker.width.data = rect.width;
         tracker.height.data = rect.height;
-
-          //FILE_LOG(logDEBUG) << "No suitable result";
         tracker.quality_results.data = true;
         trackers_results.tracker_results.push_back(tracker);
-
         }
         else
         {
@@ -390,7 +243,7 @@ public:
           tracker.height.data = 0;
           tracker.quality_results.data = false;
           trackers_results.tracker_results.push_back(tracker);
-          deletion_values.push_back(count);
+          poorly_tracked.push_back(count);
         }
       }
       count++;
@@ -407,7 +260,7 @@ public:
 
     if(value.compare("DisappearingFace") == 0)
     {
-      deleteOnLost(rectLocs);
+      deleteOnLost(tracked);
     }
     else if(value.compare("FaceRecognition") == 0)
     {
@@ -417,24 +270,24 @@ public:
   trackers_results.tracker_results.clear();
 
   }
-  void deleteOnLost(std::vector<cv::Rect> rectLocs)
+  void deleteOnLost(std::vector<cv::Rect> tracked)
   {
-    for (int i=0; i< deletion_values.size(); i++)
+    if(poorly_tracked.size() > 0) update_ui=true;
+
+    for (int i=0; i< poorly_tracked.size(); i++)
     {
-      remove_tracker(deletion_values[i]);
+      remove_tracker(poorly_tracked[i]);
     }
+    //Now what we do now here check if there are no overlapping rects between the cmt tracker results and the face detection results
+    //if there are add them to tracker. No one problem is what are teh tracked 
+    cmt_tracker::Trackers track_locs= Face_Detection::returnOverlapping(tracked,face_locs);
 
-    if(deletion_values.size() > 0)
-      update_ui=true;
+    if(track_locs.tracker_results.size() > 0) update_ui=true;
 
-
-    cmt_tracker::Trackers track_locs= Face_Detection::returnOverlapping(rectLocs,face_locs);
-
-    if(track_locs.tracker_results.size() > 0)
-      update_ui=true;
     tracker_locations_pub.publish(track_locs);
 
   }
+
   void callback(cmt_tracker::TrackerConfig &config, uint32_t level)
   {
     factor = config.factor;
@@ -483,7 +336,6 @@ public:
   void remove_tracker(int index)
   {
     cmt.erase(cmt.begin()+index);
-
   }
 
 };

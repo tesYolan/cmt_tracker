@@ -327,7 +327,7 @@ void tracker_plugin::on_MethodChanged(int index)
       std::cout<<"reaches here"<<std::endl; 
   }
   else if (index == 1) {
-    nh.setParam("tracking_method", "DisappearingFace");
+    nh.setParam("tracking_method", "mustbeface");
       double_param.name = "factor";
       double_param.value = 50 ;
       conf.doubles.push_back(double_param);
