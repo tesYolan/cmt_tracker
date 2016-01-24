@@ -188,6 +188,7 @@ private:
 
 	//value of the system. 
 	bool update_ui;
+	bool update_ui_wait; 
 
 
 };
