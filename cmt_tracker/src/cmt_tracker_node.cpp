@@ -1,74 +1,8 @@
+#include "cmt_tracker_node.h"
+#include "face_locator_node.h"
+namespace cmt_wrap {
 
-
-using namespace cmt;
-
-
-class TrackerCMT
-{
-
-//to hold the value of the image
-  cv::Mat conversion_mat_;
-  cv::Mat frame_gray;
-
-  dynamic_reconfigure::Server<cmt_tracker::TrackerConfig> server;
-  dynamic_reconfigure::Server<cmt_tracker::TrackerConfig>::CallbackType f;
-
-  std::vector<cv::Mat> tracked_images;
-
-  cv::CascadeClassifier face_cascade;
-  cv::CascadeClassifier eyes_cascade;
-  std::vector<cv::Rect> faces;
-  std::vector<cv::Rect> eyes;
-
-  ros::NodeHandle nh_;
-
-  cmt_tracker::Tracker track_location;
-
-  ros::ServiceServer clear_service;
-  ros::ServiceServer image_service;
-  ros::ServiceServer update_service;
-
-  image_transport::ImageTransport it_;
-  image_transport::Subscriber image_sub_;
-  image_transport::Publisher image_pub_;
-  image_transport::Publisher image_face_pub;
-  ros::Publisher tracker_locations_pub;
-  ros::Publisher tracker_results_pub;
-
-  ros::Subscriber face_results;
-
-  ros::Subscriber tracker_subscriber;
-  ros::Subscriber trackers_subscriber;
-
-  ros::Subscriber face_subscriber;
-
-  cmt_tracker::Tracker tracker_set;
-  cmt_tracker::Faces face_locs;
-  cmt_tracker::Trackers trackers_results;
-
-  std::vector<CMT> cmt;
-  std::vector<int> quality_of_tracker;
-
-  std::vector<int> poorly_tracked;
-
-  std::string tracking_method;
-  bool setup;
-  int last_count;
-
-  double factor;
-  
-
-  std::vector<cv::Rect> locations_of_trackers; //for setting the tracking to higher levels.
-  std::string subscribe_topic;
-  sensor_msgs::ImagePtr masked_image;
-
-  int frame_counters;
-  int frame_previous;
-
-  bool update_ui;
-  //Parameters for the CMT part of the code.
-public:
-  TrackerCMT() : it_(nh_)
+  TrackerCMT::TrackerCMT() : it_(nh_)
   {
     
     if ( !face_cascade.load("/usr/share/opencv/haarcascades/haarcascade_frontalface_alt.xml" ) || !eyes_cascade.load("/usr/share/opencv/haarcascades/haarcascade_eye_tree_eyeglasses.xml" ))
@@ -80,34 +14,35 @@ public:
     frame_previous = 0;
     update_ui= false;
     //To acquire the image that we will be doing processing on
-    image_sub_ = it_.subscribe(subscribe_topic, 1, &TrackerCMT::imageCb, this);
+    image_sub_ = it_.subscribe(subscribe_topic, 1, &cmt_wrap::TrackerCMT::imageCb, this);
 
 
     //Service to deal with the image systems.
-    clear_service = nh_.advertiseService("clear", &TrackerCMT::clear, this);
-    image_service = nh_.advertiseService("get_cmt_rects", &TrackerCMT::getTrackedImages, this);
-    update_service = nh_.advertiseService("update", &TrackerCMT::updated, this);
+    clear_service = nh_.advertiseService("clear", &cmt_wrap::TrackerCMT::clear, this);
+    image_service = nh_.advertiseService("get_cmt_rects", &cmt_wrap::TrackerCMT::getTrackedImages, this);
+    update_service = nh_.advertiseService("update", &cmt_wrap::TrackerCMT::updated, this);
 
     //To acquire the list of faces currently in track.
-    face_subscriber = (nh_).subscribe("face_locations", 1, &TrackerCMT::list_of_faces_update, this);
-    tracker_locations_pub = (nh_).advertise<cmt_tracker::Trackers>("tracking_locations", 10);
+    face_subscriber = (nh_).subscribe("face_locations", 1, &cmt_wrap::TrackerCMT::list_of_faces_update, this);
+    tracker_locations_pub = (nh_).advertise<cmt_tracker_msgs::Trackers>("tracking_locations", 10);
 
 
     //To acquire commands from this and other nodes to what to set to track.
     // masked_image = cv_bridge::CvImage(std_msgs::Header(), "mono", image_roi).toImageMsg();
-    tracker_subscriber = (nh_).subscribe("tracking_location", 1, &TrackerCMT::set_tracker, this);
-    trackers_subscriber = (nh_).subscribe("tracking_locations", 1, &TrackerCMT::set_trackers, this);
+    tracker_subscriber = (nh_).subscribe("tracking_location", 1, &cmt_wrap::TrackerCMT::set_tracker, this);
+    trackers_subscriber = (nh_).subscribe("tracking_locations", 1, &cmt_wrap::TrackerCMT::set_trackers, this);
+    
     image_pub_ = it_.advertise("/transformed/images", 1);
     image_face_pub = it_.advertise("/transformed/faces", 1);
     
-    tracker_results_pub = nh_.advertise<cmt_tracker::Trackers>("tracker_results", 10);
+    tracker_results_pub = nh_.advertise<cmt_tracker_msgs::Trackers>("tracker_results", 10);
 
-    f = boost::bind(&TrackerCMT::callback, this, _1, _2);
+    f = boost::bind(&cmt_wrap::TrackerCMT::callback, this, _1, _2);
 
     server.setCallback(f);
   }
 
-  bool clear(cmt_tracker::Clear::Request &req, cmt_tracker::Clear::Response &res)
+  bool TrackerCMT::clear(cmt_tracker_msgs::Clear::Request &req, cmt_tracker_msgs::Clear::Response &res)
   {
     cmt.clear();
     quality_of_tracker.clear();
@@ -121,7 +56,7 @@ public:
     }
     return true;
   }
-  bool updated(cmt_tracker::Update::Request &req, cmt_tracker::Update::Response &res)
+  bool TrackerCMT::updated(cmt_tracker_msgs::Update::Request &req, cmt_tracker_msgs::Update::Response &res)
   {
     res.update.data = false;
     if (update_ui)
@@ -135,11 +70,11 @@ public:
   /*
   Request the images in the system.
   */
-  bool getTrackedImages(cmt_tracker::TrackedImages::Request &req,
-                        cmt_tracker::TrackedImages::Response &res)
+  bool TrackerCMT::getTrackedImages(cmt_tracker_msgs::TrackedImages::Request &req,
+                        cmt_tracker_msgs::TrackedImages::Response &res)
   {
   //Now this get's the name of elements in one iteration in a single copy method.
-      for (std::vector<CMT>::iterator v = cmt.begin(); v!= cmt.end(); ++v)
+      for (std::vector<cmt::CMT>::iterator v = cmt.begin(); v!= cmt.end(); ++v)
       {
 
         res.names.push_back((*v).name);
@@ -158,7 +93,7 @@ public:
   /*
   This  function is a callback function that happens when an image update occurs.
   */
-  void imageCb(const sensor_msgs::ImageConstPtr& msg)
+  void TrackerCMT::imageCb(const sensor_msgs::ImageConstPtr& msg)
   {
   update_ui = false;
     //TODO why not just subscribe to the MONO image and skip all this handling. A way must be included to do that functionality. 
@@ -209,9 +144,9 @@ public:
     int count=0;
     poorly_tracked.clear();
     std::vector<cv::Rect> tracked; 
-    for (std::vector<CMT>::iterator v = cmt.begin(); v != cmt.end(); ++v)
+    for (std::vector<cmt::CMT>::iterator v = cmt.begin(); v != cmt.end(); ++v)
     {
-      cmt_tracker::Tracker tracker;
+      cmt_tracker_msgs::Tracker tracker;
       if ((*v).initialized == true && !im_gray.empty())
       {
         tracker.inital_points.data = (*v).num_initial_keypoints;
@@ -258,7 +193,7 @@ public:
     std::string value;
     nh_.getParam("tracking_method",value);
 
-    if(value.compare("DisappearingFace") == 0)
+    if(value.compare("mustbeface") == 0)
     {
       deleteOnLost(tracked);
     }
@@ -270,7 +205,7 @@ public:
   trackers_results.tracker_results.clear();
 
   }
-  void deleteOnLost(std::vector<cv::Rect> tracked)
+  void TrackerCMT::deleteOnLost(std::vector<cv::Rect> tracked)
   {
     if(poorly_tracked.size() > 0) update_ui=true;
 
@@ -280,7 +215,7 @@ public:
     }
     //Now what we do now here check if there are no overlapping rects between the cmt tracker results and the face detection results
     //if there are add them to tracker. No one problem is what are teh tracked 
-    cmt_tracker::Trackers track_locs= Face_Detection::returnOverlapping(tracked,face_locs);
+    cmt_tracker_msgs::Trackers track_locs= returnOverlapping(tracked,face_locs);
 
     if(track_locs.tracker_results.size() > 0) update_ui=true;
 
@@ -288,11 +223,11 @@ public:
 
   }
 
-  void callback(cmt_tracker::TrackerConfig &config, uint32_t level)
+  void TrackerCMT::callback(cmt_tracker_msgs::TrackerConfig &config, uint32_t level)
   {
     factor = config.factor;
   }
-  void list_of_faces_update(const cmt_tracker::Faces& faces_info)
+  void TrackerCMT::list_of_faces_update(const cmt_tracker_msgs::Faces& faces_info)
   {
     face_locs.faces.clear();
     for (int i = 0; i < faces_info.faces.size(); i++)
@@ -301,7 +236,7 @@ public:
     }
     //nh_.setParam("tracker_updated",true);
   }
-  void set_tracker(const cmt_tracker::Tracker& tracker_location)
+  void TrackerCMT::set_tracker(const cmt_tracker_msgs::Tracker& tracker_location)
   {
     //A potentially high penality task is done here but it's to avoid latter dealing with uncorrectly set trackers.
     cv::Mat im_gray = frame_gray.clone(); //To avoid change when being run.
@@ -309,7 +244,7 @@ public:
     if (!im_gray.empty() && rect.area() > 50)
     {
       //Now there must be some way to hold back setting up new tracker;
-      cmt.push_back(CMT());
+      cmt.push_back(cmt::CMT());
       cmt.back().consensus.estimate_rotation = true;
       srand(time(NULL));
       int tracker_num;
@@ -325,7 +260,7 @@ public:
     }
     //nh_.setParam("tracker_updated","true");
   }
-  void set_trackers(const cmt_tracker::Trackers& tracker_location)
+  void TrackerCMT::set_trackers(const cmt_tracker_msgs::Trackers& tracker_location)
   {
     for (int i=0; i< tracker_location.tracker_results.size(); i++)
     {
@@ -333,19 +268,83 @@ public:
     }
 
   }
-  void remove_tracker(int index)
+  void TrackerCMT::remove_tracker(int index)
   {
     cmt.erase(cmt.begin()+index);
   }
 
-};
+  namespace {
+  std::vector<cv::Rect> facedetect(cv::Mat frame_gray)
+  {
+  cv::CascadeClassifier face_cascade;
+  cv::CascadeClassifier eyes_cascade;
+  std::vector<cv::Rect> faces;
+  bool setup;
+  if ( !face_cascade.load("/usr/share/opencv/haarcascades/haarcascade_frontalface_alt.xml" ) || !eyes_cascade.load("/usr/share/opencv/haarcascades/haarcascade_eye_tree_eyeglasses.xml" ))
+    { setup = false;  };
+    setup = true;
+  if(setup)
+  {
+
+  face_cascade.detectMultiScale( frame_gray, faces, 1.05, 4, 0 | cv::CASCADE_SCALE_IMAGE, cv::Size(40, 40) );
+  //Now add eyes if one desires
+
+  }
+  return faces;
+  }
+
+  cmt_tracker_msgs::Trackers convert(std::vector<cv::Rect> faces)
+  {
+      cmt_tracker_msgs::Trackers tracker_description;
+     for (size_t i = 0; i < faces.size(); i++)
+        {
+
+          cmt_tracker_msgs::Tracker face_description;
+          face_description.pixel_lu.x = faces[i].x;
+          face_description.pixel_lu.y = faces[i].y;
+          //Now place coordinates to the value Z from the
+          //depth camera.
+          face_description.pixel_lu.z = 0;
+          face_description.height.data = faces[i].height;
+          face_description.width.data = faces[i].width;
+
+
+          tracker_description.tracker_results.push_back(face_description);
+        }
+        return tracker_description;
+   }
+   cmt_tracker_msgs::Trackers returnOverlapping(std::vector<cv::Rect> cmt_locations, cmt_tracker_msgs::Faces facelocs)
+   {
+    std::vector<cv::Rect> not_overlapped; 
+    //This is wrote to avoid calling face detect algorithm multiple times in this application. So, we check for overlap between the cmt_locations 
+    //and the facelocs (found from the face_locator node) and then if there are new values we push it note the rect and hold it in a new rect. 
+    for (int i = 0; i < facelocs.faces.size(); i++)
+    {
+      cv::Rect area_overlap(facelocs.faces[i].pixel_lu.x, facelocs.faces[i].pixel_lu.y, facelocs.faces[i].width.data, facelocs.faces[i].height.data);
+      bool no_overlap= false; 
+      for (int j=0; j< cmt_locations.size(); j++)
+      {
+        //if it overlaps with the one then break. 
+        no_overlap= (area_overlap & cmt_locations[j]).area() > 0; 
+        if(no_overlap)
+          break; 
+      }
+      if(!no_overlap)
+        not_overlapped.push_back(area_overlap);
+      //if doesn't overlap then break. 
+    }
+    return convert(not_overlapped);
+   }
+}
+
+}
 
 
 
 int main(int argc, char** argv)
 {
   ros::init(argc, argv, "cmt_tracker");
-  TrackerCMT ic;
+  cmt_wrap::TrackerCMT ic;
   ros::spin();
   return 0;
 }

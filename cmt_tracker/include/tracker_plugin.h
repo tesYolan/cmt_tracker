@@ -14,14 +14,14 @@
 #include <sensor_msgs/image_encodings.h>
 
 
-#include <cmt_tracker/Faces.h>
-#include <cmt_tracker/Tracker.h>
-#include <cmt_tracker/Trackers.h>
+#include <cmt_tracker_msgs/Faces.h>
+#include <cmt_tracker_msgs/Tracker.h>
+#include <cmt_tracker_msgs/Trackers.h>
 
-#include <cmt_tracker/TrackedImages.h>
+#include <cmt_tracker_msgs/TrackedImages.h>
 
 
-#include <cmt_tracker/TrackerConfig.h>
+#include <cmt_tracker_msgs/TrackerConfig.h>
 #include <dynamic_reconfigure/server.h>
 
 #include <dynamic_reconfigure/DoubleParameter.h>
@@ -42,11 +42,11 @@ class tracker_plugin
 
 public:
     //To hold last value of face_locs;
-    cmt_tracker::Faces face_locs;
-    cmt_tracker::Tracker track_location;
-    cmt_tracker::Tracker track_published;
-    cmt_tracker::Trackers tracking_results; 
-    // cmt_tracker::Faces tracker_locations;
+    cmt_tracker_msgs::Faces face_locs;
+    cmt_tracker_msgs::Tracker track_location;
+    cmt_tracker_msgs::Tracker track_published;
+    cmt_tracker_msgs::Trackers tracking_results; 
+    // cmt_tracker_msgs::Faces tracker_locations;
     // //Subscribers for location of faces and the image_subscriber
     ros::Publisher tracker_locations_pub;
     ros::Subscriber tracker_locations_sub;
@@ -56,8 +56,8 @@ public:
     ros::ServiceClient image_client;
     ros::ServiceClient check_update;
     image_transport::Subscriber image_subscriber;
-    dynamic_reconfigure::Server<cmt_tracker::TrackerConfig> server;
-    dynamic_reconfigure::Server<cmt_tracker::TrackerConfig>::CallbackType f;
+    dynamic_reconfigure::Server<cmt_tracker_msgs::TrackerConfig> server;
+    dynamic_reconfigure::Server<cmt_tracker_msgs::TrackerConfig>::CallbackType f;
 
     dynamic_reconfigure::ReconfigureRequest srv_req;
     dynamic_reconfigure::ReconfigureResponse srv_resp;
@@ -78,7 +78,7 @@ public:
 
     virtual void shutdownPlugin();
     
-    void callback(cmt_tracker::TrackerConfig &config, uint32_t level);
+    void callback(cmt_tracker_msgs::TrackerConfig &config, uint32_t level);
 
 signals:
     void updatefacelist();
@@ -98,13 +98,13 @@ protected slots:
 
     void on_removeAllElements_clicked();
 
-    void list_of_faces_update(const cmt_tracker::Faces& faces_info);
+    void list_of_faces_update(const cmt_tracker_msgs::Faces& faces_info);
 
     void imageCb(const sensor_msgs::ImageConstPtr& msg);
 
-    void trackerCb(const cmt_tracker::Tracker& tracker_locs);
+    void trackerCb(const cmt_tracker_msgs::Tracker& tracker_locs);
 
-    void tracker_resultsCb(const cmt_tracker::Trackers& tracker_results); 
+    void tracker_resultsCb(const cmt_tracker_msgs::Trackers& tracker_results); 
 
 
 

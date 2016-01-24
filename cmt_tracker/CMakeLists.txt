@@ -13,6 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
   dynamic_reconfigure
   message_generation
+  cmt_tracker_msgs
 )
 find_package(OpenCV REQUIRED)
 find_package(Qt4 COMPONENTS QtCore QtGui REQUIRED)
@@ -69,36 +70,7 @@ catkin_python_setup()
 ##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
 
 ## Generate messages in the 'msg' folder
- add_message_files(
-   FILES
-   Face.msg
-   Faces.msg
-   Tracker.msg
-   Trackers.msg
- )
 
-## Generate services in the 'srv' folder
- add_service_files(
-   FILES
-   Clear.srv
-   TrackedImages.srv
-   Update.srv
- )
-
-## Generate actions in the 'action' folder
-# add_action_files(
-#   FILES
-#   Action1.action
-#   Action2.action
-# )
-
-## Generate added messages and services with any dependencies listed here
- generate_messages(
-   DEPENDENCIES
-   std_msgs
-   geometry_msgs
-   sensor_msgs
- )
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
@@ -115,10 +87,7 @@ catkin_python_setup()
 ##     and list every .cfg file to be processed
 
 ## Generate dynamic reconfigure parameters in the 'cfg' folder
- generate_dynamic_reconfigure_options(
-   cfg/tracker.cfg
-#   cfg/DynReconf2.cfg
- )
+
 
 ###################################
 ## catkin specific configuration ##
@@ -134,7 +103,7 @@ catkin_package(
 #  LIBRARIES cmt_tracker
 #  CATKIN_DEPENDS cv_bridge image_transport roscpp
 #  DEPENDS system_lib
-  INCLUDE_DIRS ${tracker_plugin_INCLUDE_DIRECTORIES}
+  INCLUDE_DIRS ${tracker_plugin_INCLUDE_DIRECTORIES} include
   LIBRARIES ${PROJECT_NAME}
   CATKIN_DEPENDS rqt_gui rqt_gui_cpp message_runtime
 
@@ -148,7 +117,7 @@ catkin_package(
 ## Your package locations should be listed before other locations
 # include_directories(include)
 include_directories(
-  ${catkin_INCLUDE_DIRS} ${OpenCV_INCLUDE_DIRS}
+  ${catkin_INCLUDE_DIRS} ${OpenCV_INCLUDE_DIRS} 
 )
 
 ## Declare a C++ library
@@ -162,6 +131,8 @@ include_directories(
 # add_dependencies(cmt_tracker ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 qt4_wrap_cpp(tracker_plugin_MOCS ${tracker_plugin_HDRS})
 qt4_wrap_ui(tracker_plugin_UIS_H ${tracker_plugin_UIS})
+
+
 ## Declare a C++ executable
 add_executable(face_locator_node src/face_locator_node.cpp)
  target_link_libraries(face_locator_node

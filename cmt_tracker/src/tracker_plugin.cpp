@@ -8,10 +8,10 @@
 #include <ros/master.h>
 #include <ros/ros.h>
 #include <ros/console.h>
-#include <cmt_tracker/Clear.h>
-#include <cmt_tracker/Update.h>
-#include <cmt_tracker/Face.h>
-#include <cmt_tracker/Faces.h>
+#include <cmt_tracker_msgs/Clear.h>
+#include <cmt_tracker_msgs/Update.h>
+#include <cmt_tracker_msgs/Face.h>
+#include <cmt_tracker_msgs/Faces.h>
 #include <iostream>
 #include <sstream>
 
@@ -70,11 +70,11 @@ void tracker_plugin::initPlugin(qt_gui_cpp::PluginContext& context)
   // // image_publisher = it.advertise("/transformed/images", 1);
 
   //This is a publisher to check initally by setting trackers in the rqt plugin.
-  tracker_locations_pub = (nh).advertise<cmt_tracker::Tracker>("tracking_location", 10);
+  tracker_locations_pub = (nh).advertise<cmt_tracker_msgs::Tracker>("tracking_location", 10);
 
-  client = nh.serviceClient<cmt_tracker::Clear>("clear");
-  image_client= nh.serviceClient<cmt_tracker::TrackedImages>("get_cmt_rects");
-  check_update= nh.serviceClient<cmt_tracker::Update>("update");
+  client = nh.serviceClient<cmt_tracker_msgs::Clear>("clear");
+  image_client= nh.serviceClient<cmt_tracker_msgs::TrackedImages>("get_cmt_rects");
+  check_update= nh.serviceClient<cmt_tracker_msgs::Update>("update");
 
   //This is subscribed here because of other nodes outside this rqt plugin  set tracker location and thus this extension
   //must show the ability to show different elements in the process.
@@ -95,7 +95,7 @@ void tracker_plugin::initPlugin(qt_gui_cpp::PluginContext& context)
 
 }
 
-void tracker_plugin::callback(cmt_tracker::TrackerConfig &config, uint32_t level)
+void tracker_plugin::callback(cmt_tracker_msgs::TrackerConfig &config, uint32_t level)
 {
   //Code to handle the threshold values of the function. 
 }
@@ -139,7 +139,7 @@ void tracker_plugin::imageCb(const sensor_msgs::ImageConstPtr& msg)
   mat_images.clear();
   face_images.clear();
 
-  for (std::vector<cmt_tracker::Face>::iterator v = face_locs.faces.begin(); v != face_locs.faces.end() ; ++v)
+  for (std::vector<cmt_tracker_msgs::Face>::iterator v = face_locs.faces.begin(); v != face_locs.faces.end() ; ++v)
   {
     mat_images.push_back(conversion_mat_(cv::Rect((*v).pixel_lu.x, (*v).pixel_lu.y, (*v).width.data, (*v).height.data)).clone());
     face_images.push_back(QImage((uchar*) mat_images.back().data, mat_images.back().cols, mat_images.back().rows,
@@ -162,7 +162,7 @@ void tracker_plugin::imageCb(const sensor_msgs::ImageConstPtr& msg)
   tracked_image_mats.clear();
   tracked_image_results.clear();
   tracked_image_information.clear();
-  for (std::vector<cmt_tracker::Tracker>::iterator v = tracking_results.tracker_results.begin(); v != tracking_results.tracker_results.end() ; ++v)
+  for (std::vector<cmt_tracker_msgs::Tracker>::iterator v = tracking_results.tracker_results.begin(); v != tracking_results.tracker_results.end() ; ++v)
   {
     std::string quality;
     if((*v).quality_results.data)
@@ -209,14 +209,14 @@ void tracker_plugin::updateVisibleFaces()
   }
   //Update the last element to the list
   //Sends a service to get all images from the cmt_node.
-  cmt_tracker::Update up;
+  cmt_tracker_msgs::Update up;
   if(false)
   {
   std_msgs::Bool value= up.response.update;
   std::cout<<"value: "<<(bool)value.data<<std::endl;
   if (false)
   {
-    cmt_tracker::TrackedImages results;
+    cmt_tracker_msgs::TrackedImages results;
     //std::cout<<"results: "<<up.response.update.data<<std::endl;
     if(image_client.call(results))
     {
@@ -264,7 +264,7 @@ void tracker_plugin::updateVisibleFaces()
 /**
 The one is the one that update the value of the funciton .
 */
-void tracker_plugin::list_of_faces_update(const cmt_tracker::Faces& faces_info)
+void tracker_plugin::list_of_faces_update(const cmt_tracker_msgs::Faces& faces_info)
 {
   face_locs.faces.clear();
   //May be better to use an iterator to handle the function.
@@ -274,7 +274,7 @@ void tracker_plugin::list_of_faces_update(const cmt_tracker::Faces& faces_info)
   }
 }
 
-void tracker_plugin::trackerCb(const cmt_tracker::Tracker& tracker_locs)
+void tracker_plugin::trackerCb(const cmt_tracker_msgs::Tracker& tracker_locs)
 {
   //track_published = tracker_locs;
 
@@ -288,7 +288,7 @@ void tracker_plugin::trackerCb(const cmt_tracker::Tracker& tracker_locs)
   tracker_updated = true;
 
 }
-void tracker_plugin::tracker_resultsCb(const cmt_tracker::Trackers& tracker_results)
+void tracker_plugin::tracker_resultsCb(const cmt_tracker_msgs::Trackers& tracker_results)
 {
   //Check whether this is invalided when the loop exits.
   // = tracker_results;
@@ -373,7 +373,7 @@ void tracker_plugin::on_removeAllTracked_clicked()
   // ui.tracker_initial_list->clear();
   // ui.tracker_output_list->clear();
   // cmt.clear();
-  cmt_tracker::Clear srv; 
+  cmt_tracker_msgs::Clear srv; 
   if(client.call(srv))
   {
     std::cout<<"Cleared"<<std::endl; 

@@ -1,59 +1,16 @@
-//This is the fucntion that is responsible to
-//making face detections and tracking decisions for cmt_tracker_node.
+#include "face_locator_node.h"
+namespace face_detect {
 
-#include <ros/ros.h>
-
-#include <image_transport/image_transport.h>
-#include <cv_bridge/cv_bridge.h>
-#include <sensor_msgs/image_encodings.h>
-
-#include <opencv2/objdetect/objdetect.hpp>
-#include <opencv2/imgproc/imgproc.hpp>
-#include <opencv2/highgui/highgui.hpp>
-
-//CMT_TRACKER name structure;
-#include <cmt_tracker/Face.h>
-#include <cmt_tracker/Faces.h>
-#include <geometry_msgs/Point.h>
-#include <std_msgs/Bool.h>
-#include <std_msgs/String.h>
-#include <iostream>
-static const std::string OPENCV_WINDOW = "Image window";
-#include <sstream>
-
-#define SSTR( x ) dynamic_cast< std::ostringstream & >(( std::ostringstream() << std::dec << x ) ).str()
-
-class FacesLocator
-{
-  cv::Mat conversion_mat_;
-  int counter;
-  geometry_msgs::Point face_points;
-  cv::CascadeClassifier face_cascade;
-  cv::CascadeClassifier eyes_cascade;
-  ros::NodeHandle nh_;
-  image_transport::ImageTransport it_;
-  image_transport::Subscriber image_sub_;
-  image_transport::Publisher image_pub_;
-  //List of face values in space.
-  ros::Publisher faces_locations;
-  std::vector<cv::Rect> faces;
-  std::vector<cv::Rect> eyes; 
-  cmt_tracker::Faces cmt_face_locations;
-  std::string subscribe_topic;
-  int time_sec;
-  std_msgs::String tracking_method;
-  bool setup;
-public:
-  FacesLocator()
+  Face_Detection::Face_Detection()
     : it_(nh_)
   {
     counter = 0;
     // Subscribe to input video feed and publish output video feed
     nh_.getParam("camera_topic", subscribe_topic);
     image_sub_ = it_.subscribe(subscribe_topic, 1,
-                               &FacesLocator::imageCb, this);
+                               &face_detect::Face_Detection::imageCb, this);
     // image_pub_ = it_.advertise("/image_converter/output_video", 1);
-    faces_locations = nh_.advertise<cmt_tracker::Faces>("face_locations", 10);
+    faces_locations = nh_.advertise<cmt_tracker_msgs::Faces>("face_locations", 10);
     //Later refactor this to load from the xml documents of the file.
     if ( !face_cascade.load("/usr/share/opencv/haarcascades/haarcascade_frontalface_alt.xml" ) || !eyes_cascade.load("/usr/share/opencv/haarcascades/haarcascade_eye_tree_eyeglasses.xml" ))
     { setup = false;  };
@@ -63,16 +20,15 @@ public:
     nh_.getParam("tracker_set_time", time_sec);
   }
 
-  ~FacesLocator()
-  {
-    // cv::destroyWindow(OPENCV_WINDOW);
-  }
+  //~Face_Detection::Face_Detection()
+  //{
+  //  // cv::destroyWindow(OPENCV_WINDOW);
+  //}
 
-  void imageCb(const sensor_msgs::ImageConstPtr& msg)
+  void Face_Detection::imageCb(const sensor_msgs::ImageConstPtr& msg)
   {
-    if (setup)
+    if (setup)//remove this to emit error the system and fix the error in the system. 
     {
-
       try
       {
         // First let cv_bridge do its magic
@@ -130,7 +86,7 @@ public:
         for (size_t i = 0; i < faces.size(); i++)
         {
 
-          cmt_tracker::Face face_description;
+          cmt_tracker_msgs::Face face_description;
           face_description.pixel_lu.x = faces[i].x;
           face_description.pixel_lu.y = faces[i].y;
           //Now place coordinates to the value Z from the
@@ -173,7 +129,7 @@ public:
           size_t eye_num= 1;
           if(eyes.size() == eye_num)
           {
-          cmt_tracker::Face face_description;
+          cmt_tracker_msgs::Face face_description;
           face_description.pixel_lu.x = faces[i].x;
           face_description.pixel_lu.y = faces[i].y;
           face_description.pixel_lu.z = 0;
@@ -212,12 +168,12 @@ public:
   }
 
 
-};
+}
 
 int main(int argc, char** argv)
 {
   ros::init(argc, argv, "face_locator");
-  FacesLocator ic;
+  face_detect::Face_Detection ic;
   ros::spin();
   return 0;
 }
