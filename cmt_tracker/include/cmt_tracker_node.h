@@ -196,6 +196,10 @@ namespace {
   std::vector<cv::Rect> facedetect(cv::Mat frame_gray);
   cmt_tracker_msgs::Trackers convert(std::vector<cv::Rect> faces); 
   cmt_tracker_msgs::Trackers returnOverlapping(std::vector<cv::Rect> cmt_locations, cmt_tracker_msgs::Faces facelocs); 
+  pi_vision::Faces returnPiMessage(cmt_tracker_msgs::Tracker loc); 
+  pi_vision::Faces returnPiMessages(cmt_tracker_msgs::Trackers locs); 
+  pi_vision::FaceEvent returnPiEvens(cmt_tracker_msgs);
+
 }
 }
 #endif // CMT_TRACKER_H
