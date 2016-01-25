@@ -34,14 +34,22 @@ TrackerCMT::TrackerCMT() : it_(nh_)
   tracker_subscriber = (nh_).subscribe("tracking_location", 1, &cmt_wrap::TrackerCMT::set_tracker, this);
   trackers_subscriber = (nh_).subscribe("tracking_locations", 1, &cmt_wrap::TrackerCMT::set_trackers, this);
 
-  image_pub_ = it_.advertise("/transformed/images", 1);
-  image_face_pub = it_.advertise("/transformed/faces", 1);
+  
+  //image_pub_ = it_.advertise("/transformed/images", 1);
+  //image_face_pub = it_.advertise("/transformed/faces", 1);
 
   tracker_results_pub = nh_.advertise<cmt_tracker_msgs::Trackers>("tracker_results", 10);
-
+  
+  pi_vision_results = nh_.advertise<pi_face_tracker::Faces>("pi_results", 10); 
+  pi_events = (nh_).advertise<pi_face_tracker::FaceEvent>("pi_events", 10); 
   f = boost::bind(&cmt_wrap::TrackerCMT::callback, this, _1, _2);
 
   server.setCallback(f);
+
+  //Now let's read the camera pictures form the system. 
+  camera_config.width = 640; 
+  camera_config.height = 480; 
+  camera_config.fov = 0.625; 
 }
 
 bool TrackerCMT::clear(cmt_tracker_msgs::Clear::Request &req, cmt_tracker_msgs::Clear::Response &res)
@@ -188,9 +196,10 @@ void TrackerCMT::imageCb(const sensor_msgs::ImageConstPtr& msg)
     count++;
   }
 
+  pi_face_tracker::Faces pi_results= returnPiMessages(trackers_results, camera_config); 
 
   tracker_results_pub.publish(trackers_results);
-
+  pi_vision_results.publish(pi_results);
   //Now Let's do different methods based on what parameters are set:
 
   //if delete on lost is selected.
@@ -212,6 +221,7 @@ void TrackerCMT::imageCb(const sensor_msgs::ImageConstPtr& msg)
 //Now this function deltes all the poor tracked values and adds trackers if there are overlaps in the system.
 void TrackerCMT::deleteOnLost(std::vector<cv::Rect> tracked)
 {
+  std::cout<<"enters delete on lost"<<std::endl; 
   int size  = poorly_tracked.size();
   if (size > 0)
   {
@@ -236,6 +246,7 @@ void TrackerCMT::deleteOnLost(std::vector<cv::Rect> tracked)
     if(size > 0)
       nh_.setParam("tracker_updated", 2); 
   }
+  std::cout<<"exits delete on lost"<<std::endl; 
 }
 
 void TrackerCMT::callback(cmt_tracker_msgs::TrackerConfig &config, uint32_t level)
@@ -268,6 +279,12 @@ void TrackerCMT::set_tracker(const cmt_tracker_msgs::Tracker& tracker_location)
     std::string tracker_name = SSTR(tracker_num) ;
     cmt.back().initialize(im_gray, rect, tracker_name);
     quality_of_tracker.push_back(cmt.back().num_initial_keypoints);
+
+    //Here is where one needs to publish new face event
+    pi_face_tracker::FaceEvent m = returnPiEvents("new_face", tracker_name); 
+
+    pi_events.publish(m); 
+
   }
   else
   {
@@ -293,7 +310,12 @@ void TrackerCMT::set_trackers(const cmt_tracker_msgs::Trackers& tracker_location
 }
 void TrackerCMT::remove_tracker(int index)
 {
+
+  pi_face_tracker::FaceEvent m = returnPiEvents("lost_face", cmt[index].name); 
+  pi_events.publish(m); 
   cmt.erase(cmt.begin() + index);
+  
+
 }
 
 namespace {
@@ -318,6 +340,7 @@ std::vector<cv::Rect> facedetect(cv::Mat frame_gray)
 
 cmt_tracker_msgs::Trackers convert(std::vector<cv::Rect> faces)
 {
+  
   cmt_tracker_msgs::Trackers tracker_description;
   for (size_t i = 0; i < faces.size(); i++)
   {
@@ -334,10 +357,12 @@ cmt_tracker_msgs::Trackers convert(std::vector<cv::Rect> faces)
 
     tracker_description.tracker_results.push_back(face_description);
   }
+  
   return tracker_description;
 }
 cmt_tracker_msgs::Trackers returnOverlapping(std::vector<cv::Rect> cmt_locations, cmt_tracker_msgs::Faces facelocs)
 {
+  
   std::vector<cv::Rect> not_overlapped;
   //This is wrote to avoid calling face detect algorithm multiple times in this application. So, we check for overlap between the cmt_locations
   //and the facelocs (found from the face_locator node) and then if there are new values we push it note the rect and hold it in a new rect.
@@ -356,8 +381,75 @@ cmt_tracker_msgs::Trackers returnOverlapping(std::vector<cv::Rect> cmt_locations
       not_overlapped.push_back(area_overlap);
     //if doesn't overlap then break.
   }
+  
   return convert(not_overlapped);
 }
+
+pi_face_tracker::Face returnPiMessage(cmt_tracker_msgs::Tracker locs, camera_properties camera_config)
+{
+  pi_face_tracker::Face msg; 
+
+  
+  msg.id = std::atoi(locs.tracker_name.data.c_str()); 
+  //Now let's convert the point to a 3d representation from a  pi definition
+  /*
+        p = Point()
+        # same FOV for both, so calculate the relative distance of one pixel
+        dp = 0.22 / float(self.bounding_size) # It should be same in both axis
+        # logger.warn("bbox size=" + str(self.bounding_size))
+        w = self.camera_width/2
+        h = self.camera_height/2
+        # Y is to the left in camera image, Z is to top
+        p.x = dp *  (h / tan(self.camera_fov_x/2.0))
+        p.y = dp * (w-(self.pt2[0]+self.pt1[0])/2)
+        p.z = dp * (h-(self.pt2[1]+self.pt1[1])/2)
+
+            self.pt1 = (x,y)
+            self.pt2 = (x+w, y+h)
+  */
+
+
+  //Here definition relating to  bounding_size
+
+  //self.bounding_size = self.pt2[1] - self.pt1[1]
+  //While in initilzation it's considered as x location
+  // self.bounding_size = pt2[0] - pt1[0]
+
+  double dp; 
+  double width; 
+  double height; 
+
+  dp = 0.22 / locs.height.data; //This is how it's defined as above
+  width = camera_config.width / 2; 
+  height = camera_config.height / 2; 
+
+
+
+  msg.point.x = dp * (height / tan(camera_config.fov/2)); 
+  msg.point.y = dp * (width - ((locs.pixel_lu.x + locs.width.data) + locs.pixel_lu.x) / 2 ); 
+  msg.point.z = dp * (width - ((locs.pixel_lu.y + locs.height.data) + locs.pixel_lu.y) / 2 ); 
+
+  return msg; 
+}
+
+pi_face_tracker::Faces returnPiMessages(cmt_tracker_msgs::Trackers locs, camera_properties camera_config)
+{
+  pi_face_tracker::Faces msgs; 
+    for (int i = 0; i < locs.tracker_results.size(); i++)
+    {
+      msgs.faces.push_back(returnPiMessage(locs.tracker_results[i], camera_config)); 
+    }
+  return msgs; 
+}
+
+pi_face_tracker::FaceEvent returnPiEvents(std::string evt, std::string face_id)
+{
+  pi_face_tracker::FaceEvent event; 
+  event.face_id = std::atoi(face_id.c_str()); 
+  event.face_event = evt; 
+  return event; 
+}
+
 }
 
 }

@@ -126,8 +126,10 @@ namespace face_detect {
 
           //Now if the above doesn't bring up two eyes then skip 
           //it 
-          size_t eye_num= 1;
-          if(eyes.size() == eye_num)
+          size_t eye_num= 0;
+          
+          // if(eyes.size() > eye_num)
+          if(true)
           {
           cmt_tracker_msgs::Face face_description;
           face_description.pixel_lu.x = faces[i].x;

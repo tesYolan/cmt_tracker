@@ -23,7 +23,9 @@
 //Service call to reset the values of the images in the system
 #include <cmt_tracker_msgs/Clear.h>
 #include <cmt_tracker_msgs/Update.h>
-
+#include <pi_face_tracker/Face.h>
+#include <pi_face_tracker/Faces.h>
+#include <pi_face_tracker/FaceEvent.h>
 #include <cmt_tracker_msgs/TrackerConfig.h>
 #include <dynamic_reconfigure/server.h>
 
@@ -42,9 +44,9 @@
 
 //Threading Libraries
 #include <boost/thread.hpp>
-
+#include <string>
 #include <sstream>
-
+#include <cmath> 
 #define SSTR( x ) dynamic_cast< std::ostringstream & >(( std::ostringstream() << std::dec << x ) ).str()
 
 //This is the base file that will handle all the relevant part of processing
@@ -58,6 +60,14 @@ a certain element in space.
 */
 
 namespace cmt_wrap {
+
+struct camera_properties
+{
+	int width; 
+	int height; 
+	double fov; 
+	int offset; 
+} camera_config;
 
 class TrackerCMT
 {
@@ -148,6 +158,8 @@ private:
 	//tracker results locations. 
 	ros::Publisher tracker_locations_pub;
 	ros::Publisher tracker_results_pub;
+	ros::Publisher pi_vision_results; 
+	ros::Publisher pi_events; 
 
 	//Now this is face results; Moving to another function. 
 	ros::Subscriber face_results;
@@ -196,9 +208,9 @@ namespace {
   std::vector<cv::Rect> facedetect(cv::Mat frame_gray);
   cmt_tracker_msgs::Trackers convert(std::vector<cv::Rect> faces); 
   cmt_tracker_msgs::Trackers returnOverlapping(std::vector<cv::Rect> cmt_locations, cmt_tracker_msgs::Faces facelocs); 
-  pi_vision::Faces returnPiMessage(cmt_tracker_msgs::Tracker loc); 
-  pi_vision::Faces returnPiMessages(cmt_tracker_msgs::Trackers locs); 
-  pi_vision::FaceEvent returnPiEvens(cmt_tracker_msgs);
+  pi_face_tracker::Face returnPiMessage(cmt_tracker_msgs::Tracker loc, camera_properties camera_config); 
+  pi_face_tracker::Faces returnPiMessages(cmt_tracker_msgs::Trackers locs, camera_properties camera_config); 
+  pi_face_tracker::FaceEvent returnPiEvents(std::string event, std::string face_id);
 
 }
 }

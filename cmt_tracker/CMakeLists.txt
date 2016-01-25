@@ -14,6 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
   dynamic_reconfigure
   message_generation
   cmt_tracker_msgs
+  pi_face_tracker
 )
 find_package(OpenCV REQUIRED)
 find_package(Qt4 COMPONENTS QtCore QtGui REQUIRED)

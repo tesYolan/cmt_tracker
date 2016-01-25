@@ -121,14 +121,14 @@ void tracker_plugin::imageCb(const sensor_msgs::ImageConstPtr& msg)
         // convert gray to rgb
         cv::cvtColor(cv_ptr->image, conversion_mat_, CV_GRAY2RGB);
       }  else {
-        qWarning("ImageView.callback_image() could not convert image from '%s' to 'rgb8' (%s)", msg->encoding.c_str(), e.what());
+        qWarning("callback could not convert image from '%s' to 'rgb8' (%s)", msg->encoding.c_str(), e.what());
         // ui_.image_frame->setImage(QImage());
         return;
       }
     }
     catch (cv_bridge::Exception& e)
     {
-      qWarning("ImageView.callback_image() while trying to convert image from '%s' to 'rgb8' an exception was thrown (%s)", msg->encoding.c_str(), e.what());
+      qWarning("callback while trying to convert image from '%s' to 'rgb8' an exception was thrown (%s)", msg->encoding.c_str(), e.what());
       // ui_.image_frame->setImage(QImage());
       return;
     }
@@ -239,22 +239,23 @@ This function is the one that update hte UI of all things related to the system.
 */
 void tracker_plugin::updateVisibleFaces()
 {
-  
+  std::cout<<"Enters 1: "<<std::endl; 
   ui.face_output_list->clear();
   ui.tracker_output_list->clear();
-  ui.tracker_initial_list->clear();
+  //ui.tracker_initial_list->clear();
 
+  std::cout<<"Enters 2: "<<std::endl; 
   for (std::vector<QImage>::iterator v = face_images.begin(); v != face_images.end(); ++v)
   {
     ui.face_output_list->addItem(new QListWidgetItem(QIcon(QPixmap::fromImage(*v)), "Faces"));
   }
 
-  for (std::vector<QImage>::iterator v = tracked_faces.begin(); v != tracked_faces.end(); ++v)
-   {
-     ui.tracker_initial_list->addItem(new QListWidgetItem(QIcon(QPixmap::fromImage(*v)), "results"));
-   }
+  // for (std::vector<QImage>::iterator v = tracked_faces.begin(); v != tracked_faces.end(); ++v)
+  //  {
+  //    ui.tracker_initial_list->addItem(new QListWidgetItem(QIcon(QPixmap::fromImage(*v)), "results"));
+  //  }
 
-
+  std::cout<<"Enters 3: "<<std::endl; 
   int count_info = 0 ;
   for (std::vector<QImage>::iterator v = tracked_image_results.begin(); v != tracked_image_results.end(); ++v)
   {
@@ -327,7 +328,7 @@ void tracker_plugin::on_MethodChanged(int index)
 
     srv_req.config = conf;
     ros::service::call("/cmt_tracker_node/set_parameters", srv_req, srv_resp);
-    std::cout << "reaches here" << std::endl;
+    std::cout << "tracking method change 1" << std::endl;
   }
   else if (index == 1) {
     nh.setParam("tracking_method", "mustbeface");
@@ -337,7 +338,7 @@ void tracker_plugin::on_MethodChanged(int index)
 
     srv_req.config = conf;
     ros::service::call("/cmt_tracker_node/set_parameters", srv_req, srv_resp);
-    std::cout << "reaches here" << std::endl;
+    std::cout << "tracking method change 2" << std::endl;
   }
   else
   {
@@ -351,7 +352,6 @@ void tracker_plugin::on_MethodChanged(int index)
  */
 void tracker_plugin::on_addToTrack_clicked(QListWidgetItem *item)
 {
-  std::cout << "Reaches ehre" << std::endl;
   int last_selected_item = ui.face_output_list->currentRow();
   //Now here one publishes the last selected item in the list.
 
