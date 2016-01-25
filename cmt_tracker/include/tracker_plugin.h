@@ -126,6 +126,7 @@ protected:
     Ui::tracker_plugin ui;
     QWidget* widget_;
     
+    std::vector<std::string> tracked_images_names; 
     int tracker_updated_num; 
     bool tracker_updated;
     bool trackers_updated; 

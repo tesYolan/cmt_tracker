@@ -190,6 +190,11 @@ void tracker_plugin::imageCb(const sensor_msgs::ImageConstPtr& msg)
     {
       tracked_images.clear();
       tracked_faces.clear();
+      tracked_images_names.clear(); 
+      for (int i= 0; i< results.response.names.size(); i++)
+      {
+        tracked_images_names.push_back(results.response.names[i]); 
+      }
       for (int i = 0; i < results.response.image.size(); i++)
       {
         sensor_msgs::Image im = results.response.image[i];
@@ -235,7 +240,7 @@ void tracker_plugin::updateVisibleFaces()
   int count_info = 0 ;
   for (std::vector<QImage>::iterator v = tracked_faces.begin(); v != tracked_faces.end(); ++v)
    {
-     ui.tracker_initial_list->addItem(new QListWidgetItem(QIcon(QPixmap::fromImage(*v)), "results"));
+     ui.tracker_initial_list->addItem(new QListWidgetItem(QIcon(QPixmap::fromImage(*v)), QString::fromStdString(tracked_images_names[count_info])));
      count_info++;
    }
 
