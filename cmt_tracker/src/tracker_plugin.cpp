@@ -146,22 +146,10 @@ void tracker_plugin::imageCb(const sensor_msgs::ImageConstPtr& msg)
                                  mat_images.back().step[0], QImage::Format_RGB888));
   }
 
-  //The logic for subscribed works like this; (if there has been change in the value then we add it to the list other wise we let it be)
-
-  // if (tracker_updated)
-  // {
-  // //Now let get the service call to the system.
-
-  //     //Now let's iterate over the results and rename the systems.
-
-  //   tracked_images.push_back(conversion_mat_(cv::Rect(track_published.pixel_lu.x, track_published.pixel_lu.y, track_published.width.data,
-  //                            track_published.height.data)).clone());
-  //   tracked_faces.push_back(QImage((uchar*) tracked_images.back().data, tracked_images.back().cols, tracked_images.back().rows,
-  //                                  tracked_images.back().step[0], QImage::Format_RGB888));
-  // }
   tracked_image_mats.clear();
   tracked_image_results.clear();
   tracked_image_information.clear();
+
   for (std::vector<cmt_tracker_msgs::Tracker>::iterator v = tracking_results.tracker_results.begin(); v != tracking_results.tracker_results.end() ; ++v)
   {
     std::string quality;
@@ -197,17 +185,15 @@ void tracker_plugin::imageCb(const sensor_msgs::ImageConstPtr& msg)
   nh.getParam("tracker_updated", tracker_updated_num);
   if (tracker_updated_num == 2)
   {
-
+    cmt_tracker_msgs::TrackedImages results;
     if (image_client.call(results))
     {
-
-      //ui.tracker_initial_list->clear();
       tracked_images.clear();
       tracked_faces.clear();
       for (int i = 0; i < results.response.image.size(); i++)
       {
         sensor_msgs::Image im = results.response.image[i];
-        sensor_msgs::ImagePtr  r = boost::shared_ptr<sensor_msgs::Image>(boost::make_shared<sensor_msgs::Image>(im));
+        sensor_msgs::ImagePtr r = boost::shared_ptr<sensor_msgs::Image>(boost::make_shared<sensor_msgs::Image>(im));
         //r = boost::shared_ptr<sensor_msgs::Image>(im);
         cv_bridge::CvImageConstPtr cv_ptrs;
         cv::Mat image;
@@ -215,7 +201,6 @@ void tracker_plugin::imageCb(const sensor_msgs::ImageConstPtr& msg)
           cv_ptrs = cv_bridge::toCvShare(r);
           image = cv_ptrs->image;
           cv::cvtColor(image, image, cv::COLOR_GRAY2RGB);
-          //cv::imshow("H", image);
         }
         catch (cv_bridge::Exception& e)
         {
@@ -225,8 +210,6 @@ void tracker_plugin::imageCb(const sensor_msgs::ImageConstPtr& msg)
         tracked_images.push_back(image);
         tracked_faces.push_back(QImage((uchar*) tracked_images.back().data, tracked_images.back().cols, 
           tracked_images.back().rows, tracked_images.back().step[0], QImage::Format_RGB888));
-        
-        //ui.tracker_initial_list->addItem(new QListWidgetItem(QIcon(QPixmap::fromImage(tracked_faces.back())), QString::fromUtf8(results.response.names[i].c_str())));
       }
     }
     nh.setParam("tracker_updated", 0); 
@@ -239,24 +222,26 @@ This function is the one that update hte UI of all things related to the system.
 */
 void tracker_plugin::updateVisibleFaces()
 {
-  std::cout<<"Enters 1: "<<std::endl; 
+  
   ui.face_output_list->clear();
   ui.tracker_output_list->clear();
-  //ui.tracker_initial_list->clear();
+  ui.tracker_initial_list->clear();
 
-  std::cout<<"Enters 2: "<<std::endl; 
+  
   for (std::vector<QImage>::iterator v = face_images.begin(); v != face_images.end(); ++v)
   {
     ui.face_output_list->addItem(new QListWidgetItem(QIcon(QPixmap::fromImage(*v)), "Faces"));
   }
-
-  // for (std::vector<QImage>::iterator v = tracked_faces.begin(); v != tracked_faces.end(); ++v)
-  //  {
-  //    ui.tracker_initial_list->addItem(new QListWidgetItem(QIcon(QPixmap::fromImage(*v)), "results"));
-  //  }
-
-  std::cout<<"Enters 3: "<<std::endl; 
   int count_info = 0 ;
+  for (std::vector<QImage>::iterator v = tracked_faces.begin(); v != tracked_faces.end(); ++v)
+   {
+     ui.tracker_initial_list->addItem(new QListWidgetItem(QIcon(QPixmap::fromImage(*v)), "results"));
+     count_info++;
+   }
+
+
+
+  count_info = 0;   
   for (std::vector<QImage>::iterator v = tracked_image_results.begin(); v != tracked_image_results.end(); ++v)
   {
     ui.tracker_output_list->addItem(new QListWidgetItem(QIcon(QPixmap::fromImage(*v)), QString::fromStdString(tracked_image_information[count_info])));
@@ -289,7 +274,7 @@ void tracker_plugin::trackerCb(const cmt_tracker_msgs::Tracker& tracker_locs)
   track_published.height.data = tracker_locs.height.data;
   track_published.tracker_name.data = tracker_locs.tracker_name.data;
 
-  tracker_updated = true;
+  //tracker_updated = true;
 
 }
 void tracker_plugin::tracker_resultsCb(const cmt_tracker_msgs::Trackers& tracker_results)
@@ -301,7 +286,7 @@ void tracker_plugin::tracker_resultsCb(const cmt_tracker_msgs::Trackers& tracker
   {
     tracking_results.tracker_results.push_back(tracker_results.tracker_results[i]);
   }
-  tracking_results_updated = true;
+  //tracking_results_updated = true;
 }
 
 void tracker_plugin::shutdownPlugin()

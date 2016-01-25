@@ -125,7 +125,7 @@ protected:
     // cv::Mat conversion_mat_previous;
     Ui::tracker_plugin ui;
     QWidget* widget_;
-    cmt_tracker_msgs::TrackedImages results;
+    
     int tracker_updated_num; 
     bool tracker_updated;
     bool trackers_updated; 
