@@ -213,7 +213,7 @@ namespace {
   pi_face_tracker::Face returnPiMessage(cmt_tracker_msgs::Tracker loc, camera_properties camera_config); 
   pi_face_tracker::Faces returnPiMessages(cmt_tracker_msgs::Trackers locs, camera_properties camera_config); 
   pi_face_tracker::FaceEvent returnPiEvents(std::string event, std::string face_id);
-
+  cmt_tracker_msgs::Trackers returnOverlappingEmotion(cmt_tracker_msgs::Trackers locs, cmt_tracker_msgs::Faces facelocs);
 }
 }
 #endif // CMT_TRACKER_H

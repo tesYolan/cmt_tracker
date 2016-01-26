@@ -137,7 +137,7 @@ qt4_wrap_ui(tracker_plugin_UIS_H ${tracker_plugin_UIS})
 ## Declare a C++ executable
 add_executable(face_locator_node src/face_locator_node.cpp)
  target_link_libraries(face_locator_node
-   ${catkin_LIBRARIES} ${OpenCV_LIBS} cblas lapack dlib
+   ${catkin_LIBRARIES} ${OpenCV_LIBS} #cblas lapack dlib
  )
 
 add_executable(cmt_tracker_node src/cmt_tracker_node.cpp)

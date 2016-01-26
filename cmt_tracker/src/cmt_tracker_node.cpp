@@ -23,7 +23,7 @@ TrackerCMT::TrackerCMT() : it_(nh_)
   update_service = nh_.advertiseService("update", &cmt_wrap::TrackerCMT::updated, this);
 
   //To acquire the list of faces currently in track.
-  face_subscriber = (nh_).subscribe("face_locations", 1, &cmt_wrap::TrackerCMT::list_of_faces_update, this);
+  face_subscriber = (nh_).subscribe("emo_pub_registered", 1, &cmt_wrap::TrackerCMT::list_of_faces_update, this);
 
   //this is the one that creates what add to track based on the overlay of previous cmt tracking results and faces in face_locator_node
   tracker_locations_pub = (nh_).advertise<cmt_tracker_msgs::Trackers>("tracking_locations", 10);
@@ -34,28 +34,28 @@ TrackerCMT::TrackerCMT() : it_(nh_)
   tracker_subscriber = (nh_).subscribe("tracking_location", 1, &cmt_wrap::TrackerCMT::set_tracker, this);
   trackers_subscriber = (nh_).subscribe("tracking_locations", 1, &cmt_wrap::TrackerCMT::set_trackers, this);
 
-  
+
   //image_pub_ = it_.advertise("/transformed/images", 1);
   //image_face_pub = it_.advertise("/transformed/faces", 1);
 
   tracker_results_pub = nh_.advertise<cmt_tracker_msgs::Trackers>("tracker_results", 10);
-  
-  pi_vision_results = nh_.advertise<pi_face_tracker::Faces>("pi_results", 10); 
-  pi_events = (nh_).advertise<pi_face_tracker::FaceEvent>("pi_events", 10); 
+
+  pi_vision_results = nh_.advertise<pi_face_tracker::Faces>("pi_results", 10);
+  pi_events = (nh_).advertise<pi_face_tracker::FaceEvent>("pi_events", 10);
   f = boost::bind(&cmt_wrap::TrackerCMT::callback, this, _1, _2);
 
   server.setCallback(f);
 
-  //Now let's read the camera pictures form the system. 
-  camera_config.width = 640; 
-  camera_config.height = 480; 
-  camera_config.fov = 0.625; 
+  //Now let's read the camera pictures form the system.
+  camera_config.width = 640;
+  camera_config.height = 480;
+  camera_config.fov = 0.625;
 }
 
 bool TrackerCMT::clear(cmt_tracker_msgs::Clear::Request &req, cmt_tracker_msgs::Clear::Response &res)
 {
-  clear_cmt = true; 
-  // cmt.clear();//Now let's call this when we do before processing. 
+  clear_cmt = true;
+  // cmt.clear();//Now let's call this when we do before processing.
   // // quality_of_tracker.clear();
   // if (cmt.size() == 0)
   // {
@@ -65,8 +65,8 @@ bool TrackerCMT::clear(cmt_tracker_msgs::Clear::Request &req, cmt_tracker_msgs::
   // {
   //   res.cleared = false;
   // }
-  // //update ui. 
-  // nh_.setParam("tracker_updated", 2); 
+  // //update ui.
+  // nh_.setParam("tracker_updated", 2);
   return true;
 }
 //this is a service that indicates wheteher new elements are going to be tracked or note.
@@ -156,11 +156,11 @@ void TrackerCMT::imageCb(const sensor_msgs::ImageConstPtr& msg)
   int quality_update = 0;
   int count = 0;
   poorly_tracked.clear();
-  if(clear_cmt)
+  if (clear_cmt)
   {
-    cmt.clear(); 
-    nh_.setParam("tracker_updated", 2); 
-    clear_cmt = false; 
+    cmt.clear();
+    nh_.setParam("tracker_updated", 2);
+    clear_cmt = false;
   }
   std::vector<cv::Rect> tracked;
   for (std::vector<cmt::CMT>::iterator v = cmt.begin(); v != cmt.end(); ++v)
@@ -203,9 +203,13 @@ void TrackerCMT::imageCb(const sensor_msgs::ImageConstPtr& msg)
     count++;
   }
 
-  pi_face_tracker::Faces pi_results= returnPiMessages(trackers_results, camera_config); 
+  pi_face_tracker::Faces pi_results = returnPiMessages(trackers_results, camera_config);
 
-  tracker_results_pub.publish(trackers_results);
+  cmt_tracker_msgs::Trackers emo_reg = returnOverlappingEmotion(trackers_results, face_locs);
+  
+  //tracker_results_pub.publish(trackers_results);
+  tracker_results_pub.publish(emo_reg);
+  
   pi_vision_results.publish(pi_results);
   //Now Let's do different methods based on what parameters are set:
 
@@ -228,7 +232,7 @@ void TrackerCMT::imageCb(const sensor_msgs::ImageConstPtr& msg)
 //Now this function deltes all the poor tracked values and adds trackers if there are overlaps in the system.
 void TrackerCMT::deleteOnLost(std::vector<cv::Rect> tracked)
 {
-  std::cout<<"enters delete on lost"<<std::endl; 
+  std::cout << "enters delete on lost" << std::endl;
   int size  = poorly_tracked.size();
   if (size > 0)
   {
@@ -243,17 +247,17 @@ void TrackerCMT::deleteOnLost(std::vector<cv::Rect> tracked)
 
   if ( track_locs.tracker_results.size() > 0 )
   {
-    //now wait for update irregardless of of deletion; 
-    
+    //now wait for update irregardless of of deletion;
+
     tracker_locations_pub.publish(track_locs);
-    update_ui_wait = true; //this would update the ui after this locations have been published in the system. 
+    update_ui_wait = true; //this would update the ui after this locations have been published in the system.
   }
-  else 
+  else
   {
-    if(size > 0)
-      nh_.setParam("tracker_updated", 2); 
+    if (size > 0)
+      nh_.setParam("tracker_updated", 2);
   }
-  std::cout<<"exits delete on lost"<<std::endl; 
+  std::cout << "exits delete on lost" << std::endl;
 }
 
 void TrackerCMT::callback(cmt_tracker_msgs::TrackerConfig &config, uint32_t level)
@@ -288,9 +292,9 @@ void TrackerCMT::set_tracker(const cmt_tracker_msgs::Tracker& tracker_location)
     //quality_of_tracker.push_back(cmt.back().num_initial_keypoints);
 
     //Here is where one needs to publish new face event
-    pi_face_tracker::FaceEvent m = returnPiEvents("new_face", tracker_name); 
+    pi_face_tracker::FaceEvent m = returnPiEvents("new_face", tracker_name);
 
-    pi_events.publish(m); 
+    pi_events.publish(m);
 
   }
   else
@@ -299,7 +303,7 @@ void TrackerCMT::set_tracker(const cmt_tracker_msgs::Tracker& tracker_location)
   }
   std::string value;
   nh_.getParam("tracking_method", value);
-  if(value.compare("handtracking") == 0) nh_.setParam("tracker_updated",2);
+  if (value.compare("handtracking") == 0) nh_.setParam("tracker_updated", 2);
 }
 void TrackerCMT::set_trackers(const cmt_tracker_msgs::Trackers& tracker_location)
 {
@@ -307,21 +311,21 @@ void TrackerCMT::set_trackers(const cmt_tracker_msgs::Trackers& tracker_location
   {
     set_tracker(tracker_location.tracker_results[i]);
   }
-  if(update_ui_wait)
-    {
-      nh_.setParam("tracker_updated", 2); 
-      update_ui_wait= false; 
-    }
+  if (update_ui_wait)
+  {
+    nh_.setParam("tracker_updated", 2);
+    update_ui_wait = false;
+  }
 
 
 }
 void TrackerCMT::remove_tracker(int index)
 {
 
-  pi_face_tracker::FaceEvent m = returnPiEvents("lost_face", cmt[index].name); 
-  pi_events.publish(m); 
+  pi_face_tracker::FaceEvent m = returnPiEvents("lost_face", cmt[index].name);
+  pi_events.publish(m);
   cmt.erase(cmt.begin() + index);
-  
+
 
 }
 
@@ -347,7 +351,7 @@ std::vector<cv::Rect> facedetect(cv::Mat frame_gray)
 
 cmt_tracker_msgs::Trackers convert(std::vector<cv::Rect> faces)
 {
-  
+
   cmt_tracker_msgs::Trackers tracker_description;
   for (size_t i = 0; i < faces.size(); i++)
   {
@@ -364,40 +368,40 @@ cmt_tracker_msgs::Trackers convert(std::vector<cv::Rect> faces)
 
     tracker_description.tracker_results.push_back(face_description);
   }
-  
+
   return tracker_description;
 }
 cmt_tracker_msgs::Trackers returnOverlapping(std::vector<cv::Rect> cmt_locations, cmt_tracker_msgs::Faces facelocs)
 {
-  
+
   std::vector<cv::Rect> not_overlapped;
   //This is wrote to avoid calling face detect algorithm multiple times in this application. So, we check for overlap between the cmt_locations
   //and the facelocs (found from the face_locator node) and then if there are new values we push it note the rect and hold it in a new rect.
   for (int i = 0; i < facelocs.faces.size(); i++)
   {
     cv::Rect area_overlap(facelocs.faces[i].pixel_lu.x, facelocs.faces[i].pixel_lu.y, facelocs.faces[i].width.data, facelocs.faces[i].height.data);
-    bool no_overlap = false;
+    bool overlap = false;
     for (int j = 0; j < cmt_locations.size(); j++)
     {
       //if it overlaps with the one then break.
-      no_overlap = (area_overlap & cmt_locations[j]).area() > 0;
-      if (no_overlap)
+      overlap = (area_overlap & cmt_locations[j]).area() > 0;
+      if (overlap)
         break;
     }
-    if (!no_overlap)
+    if (!overlap)
       not_overlapped.push_back(area_overlap);
     //if doesn't overlap then break.
   }
-  
+
   return convert(not_overlapped);
 }
 
 pi_face_tracker::Face returnPiMessage(cmt_tracker_msgs::Tracker locs, camera_properties camera_config)
 {
-  pi_face_tracker::Face msg; 
+  pi_face_tracker::Face msg;
 
-  
-  msg.id = std::atoi(locs.tracker_name.data.c_str()); 
+
+  msg.id = std::atoi(locs.tracker_name.data.c_str());
   //Now let's convert the point to a 3d representation from a  pi definition
   /*
         p = Point()
@@ -422,39 +426,76 @@ pi_face_tracker::Face returnPiMessage(cmt_tracker_msgs::Tracker locs, camera_pro
   //While in initilzation it's considered as x location
   // self.bounding_size = pt2[0] - pt1[0]
 
-  double dp; 
-  double width; 
-  double height; 
+  double dp;
+  double width;
+  double height;
 
   dp = 0.22 / locs.height.data; //This is how it's defined as above
-  width = camera_config.width / 2; 
-  height = camera_config.height / 2; 
+  width = camera_config.width / 2;
+  height = camera_config.height / 2;
 
 
 
-  msg.point.x = dp * (height / tan(camera_config.fov/2)); 
-  msg.point.y = dp * (width - ((locs.pixel_lu.x + locs.width.data) + locs.pixel_lu.x) / 2 ); 
-  msg.point.z = dp * (width - ((locs.pixel_lu.y + locs.height.data) + locs.pixel_lu.y) / 2 ); 
+  msg.point.x = dp * (height / tan(camera_config.fov / 2));
+  msg.point.y = dp * (width - ((locs.pixel_lu.x + locs.width.data) + locs.pixel_lu.x) / 2 );
+  msg.point.z = dp * (width - ((locs.pixel_lu.y + locs.height.data) + locs.pixel_lu.y) / 2 );
 
-  return msg; 
+  return msg;
 }
 
 pi_face_tracker::Faces returnPiMessages(cmt_tracker_msgs::Trackers locs, camera_properties camera_config)
 {
-  pi_face_tracker::Faces msgs; 
-    for (int i = 0; i < locs.tracker_results.size(); i++)
-    {
-      msgs.faces.push_back(returnPiMessage(locs.tracker_results[i], camera_config)); 
-    }
-  return msgs; 
+  pi_face_tracker::Faces msgs;
+  for (int i = 0; i < locs.tracker_results.size(); i++)
+  {
+    msgs.faces.push_back(returnPiMessage(locs.tracker_results[i], camera_config));
+  }
+  return msgs;
 }
 
 pi_face_tracker::FaceEvent returnPiEvents(std::string evt, std::string face_id)
 {
-  pi_face_tracker::FaceEvent event; 
-  event.face_id = std::atoi(face_id.c_str()); 
-  event.face_event = evt; 
-  return event; 
+  pi_face_tracker::FaceEvent event;
+  event.face_id = std::atoi(face_id.c_str());
+  event.face_event = evt;
+  return event;
+}
+
+cmt_tracker_msgs::Trackers returnOverlappingEmotion(cmt_tracker_msgs::Trackers locs, cmt_tracker_msgs::Faces facelocs)
+{
+  cmt_tracker_msgs::Trackers registeredEmotions; 
+  for (int i = 0; i < locs.tracker_results.size(); i++)
+  {
+    cmt_tracker_msgs::Tracker emotion; 
+    cv::Rect emotion_overlap(locs.tracker_results[i].pixel_lu.x, locs.tracker_results[i].pixel_lu.y, 
+      locs.tracker_results[i].width.data, locs.tracker_results[i].height.data);
+    emotion = locs.tracker_results[i]; 
+    //Now the other part of the tracker are the same as the locs results; we just need to append the emotional state to the system
+    bool overlap = false;
+    for (int j = 0; j < facelocs.faces.size(); j++)
+    {
+      //if it overlaps with the one then break.
+      cv::Rect cmt_overlap(facelocs.faces[i].pixel_lu.x, facelocs.faces[i].pixel_lu.y, facelocs.faces[i].width.data, facelocs.faces[i].height.data);
+      overlap = (emotion_overlap & cmt_overlap).area() > 0;
+      if (overlap)
+        {
+        //Now we add the to the cmt the overlapped emotion; if there are no emotion overlap then we add unknown emotion state to the system. 
+        //assign and break
+          emotion.emotion.data = facelocs.faces[i].emotion_states.data; 
+          emotion.emo_accuracy.data = facelocs.faces[i].emo_accuracy.data; 
+          //Now update this value to the system
+          break; 
+        }
+      else
+      {
+          emotion.emotion.data = "unknown"; 
+          emotion.emo_accuracy.data = 0; 
+      }
+    }
+    registeredEmotions.tracker_results.push_back(emotion); 
+  }
+
+  return registeredEmotions;
 }
 
 }

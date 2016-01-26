@@ -161,7 +161,8 @@ void tracker_plugin::imageCb(const sensor_msgs::ImageConstPtr& msg)
       quality = "false";
     }
 
-    std::string value = "ID: " + (*v).tracker_name.data + "\n" + "IAP: " + SSTR((*v).inital_points.data) + "\n" + + "CAP: " + SSTR((*v).active_points.data)  + "\n" +  quality;
+    std::string value = "ID: " + (*v).tracker_name.data + "\n" + "IAP: " + SSTR((*v).inital_points.data) + "\n" + + "CAP: " + SSTR((*v).active_points.data)  + "\n" +  quality
+                        + "\n" + "Emotion: " + (*v).emotion.data + "\n" +"Accuracy: " + SSTR((*v).emo_accuracy.data);
     tracked_image_information.push_back( value );
 
     //Now here if the tracker results is positive then output this as a result of the image other wise update the results.

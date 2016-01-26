@@ -18,7 +18,7 @@ Face_Detection::Face_Detection()
   // cv::namedWindow(OPENCV_WINDOW);
   //Get time it takes to set the tracking values.
   nh_.getParam("tracker_set_time", time_sec);
-  detector = dlib::get_frontal_face_detector();
+  // detector = dlib::get_frontal_face_detector();
 
 }
 
@@ -78,9 +78,9 @@ void Face_Detection::imageCb(const sensor_msgs::ImageConstPtr& msg)
     //nh.getParam("face_detection_method",)
     face_cascade.detectMultiScale( frame_gray, faces, 1.1, 2, 0 | cv::CASCADE_SCALE_IMAGE, cv::Size(30, 30) );
 
-    dlib::cv_image<dlib::rgb_pixel> cimg(conversion_mat_);
+    // dlib::cv_image<dlib::rgb_pixel> cimg(conversion_mat_);
 
-    std::vector<dlib::rectangle> facesd = detector(cimg);
+    // std::vector<dlib::rectangle> facesd = detector(cimg);
 
 
 
@@ -134,8 +134,6 @@ void Face_Detection::imageCb(const sensor_msgs::ImageConstPtr& msg)
         // cv::equalizeHist( frame_gray, frame_gray );
         eyes_cascade.detectMultiScale( frame_gray, eyes, 1.1, 2, 0 | cv::CASCADE_SCALE_IMAGE, cv::Size(30, 30) );
 
-        //Now if the above doesn't bring up two eyes then skip
-        //it
         size_t eye_num = 0;
 
         // if(eyes.size() > eye_num)

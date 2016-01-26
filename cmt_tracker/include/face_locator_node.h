@@ -20,13 +20,13 @@
 #include <iostream>
 #include <sstream>
 
-//dlib libraries to check for better results
-#include <dlib/opencv.h>
-#include <dlib/image_processing/frontal_face_detector.h>
-#include <dlib/image_processing/render_face_detections.h>
-#include <dlib/image_processing.h>
-#include <dlib/gui_widgets.h>
-//=====
+// //dlib libraries to check for better results
+// #include <dlib/opencv.h>
+// #include <dlib/image_processing/frontal_face_detector.h>
+// #include <dlib/image_processing/render_face_detections.h>
+// #include <dlib/image_processing.h>
+// #include <dlib/gui_widgets.h>
+// //=====
 #define NO_MAKEFILE
 #define ENABLE_ASSERTS
 #define SSTR( x ) dynamic_cast< std::ostringstream & >(( std::ostringstream() << std::dec << x ) ).str()
@@ -48,7 +48,7 @@ private:
   cv::CascadeClassifier face_cascade;
   cv::CascadeClassifier eyes_cascade;
 
-  dlib::frontal_face_detector detector; 
+  // dlib::frontal_face_detector detector; 
 
   ros::NodeHandle nh_;
   image_transport::ImageTransport it_;
