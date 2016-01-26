@@ -51,11 +51,11 @@ void tracker_plugin::initPlugin(qt_gui_cpp::PluginContext& context)
   also if the person has given in the parameters that are run with the script that is running then we would be able to run the system.
   */
 
+  img.create(100, 100, CV_8UC3);
+  img.setTo(cv::Scalar(0,0,0));
 
-  // frame = 0;
-  tracker_updated = true;
-  trackers_updated = true;
-  tracking_results_updated = false;
+
+  firstrun = true;
   ui.face_choice_method->addItem("Hand Selection Trackings");
   ui.face_choice_method->addItem("Remove on LOST");
   ui.face_choice_method->addItem("Face Recognition Method");
@@ -79,7 +79,8 @@ void tracker_plugin::initPlugin(qt_gui_cpp::PluginContext& context)
   //This is subscribed here because of other nodes outside this rqt plugin  set tracker location and thus this extension
   //must show the ability to show different elements in the process.
   tracker_locations_sub = (nh).subscribe("tracking_location", 10 , &rqt_tracker_view::tracker_plugin::trackerCb, this);
-  nh.setParam("tracking_method", "handtracking");
+  nh.getParam("tracking_method", tracking_method);
+
 
   connect(ui.face_choice_method, SIGNAL(currentIndexChanged(int)), this, SLOT(on_MethodChanged(int)));
   connect(ui.face_output_list, SIGNAL(itemPressed(QListWidgetItem *)), this, SLOT(on_addToTrack_clicked(QListWidgetItem *)));
@@ -87,18 +88,14 @@ void tracker_plugin::initPlugin(qt_gui_cpp::PluginContext& context)
   connect(ui.removeTracked, SIGNAL(pressed()), this, SLOT(on_removeTracked_clicked()));
   connect(this, SIGNAL(updatefacelist()), this, SLOT(updateVisibleFaces()));
 
-  // f = boost::bind(&rqt_tracker_view::tracker_plugin::callback, this , _1, _2);
-  // server.setCallback(f);
-
+  if (tracking_method.compare("handtracking") == 0) ui.face_choice_method->setCurrentIndex(0);
+  else if (tracking_method.compare("mustbeface") == 0) ui.face_choice_method->setCurrentIndex(1);
+  else  ui.face_choice_method->setCurrentIndex(2);
 
 
 
 }
 
-void tracker_plugin::callback(cmt_tracker_msgs::TrackerConfig &config, uint32_t level)
-{
-  //Code to handle the threshold values of the function.
-}
 void tracker_plugin::imageCb(const sensor_msgs::ImageConstPtr& msg)
 {
   try
@@ -138,14 +135,14 @@ void tracker_plugin::imageCb(const sensor_msgs::ImageConstPtr& msg)
   //get the data's here sequentially.
   mat_images.clear();
   face_images.clear();
-  //emotion.clear(); 
+  //emotion.clear();
 
   for (std::vector<cmt_tracker_msgs::Face>::iterator v = face_locs.faces.begin(); v != face_locs.faces.end() ; ++v)
   {
     mat_images.push_back(conversion_mat_(cv::Rect((*v).pixel_lu.x, (*v).pixel_lu.y, (*v).width.data, (*v).height.data)).clone());
     face_images.push_back(QImage((uchar*) mat_images.back().data, mat_images.back().cols, mat_images.back().rows,
                                  mat_images.back().step[0], QImage::Format_RGB888));
-    //emotion.push_back((*v).emotion_states.data); 
+    //emotion.push_back((*v).emotion_states.data);
   }
 
   tracked_image_mats.clear();
@@ -175,9 +172,7 @@ void tracker_plugin::imageCb(const sensor_msgs::ImageConstPtr& msg)
                                              tracked_image_mats.back().step[0], QImage::Format_RGB888));
     }
     else {
-      cv::Mat img(100, 100, CV_8UC3);
-      img.setTo(cv::Scalar(5));
-      tracked_image_mats.push_back(img.clone());
+      tracked_image_mats.push_back(img);
       tracked_image_results.push_back(QImage((uchar*) tracked_image_mats.back().data, tracked_image_mats.back().cols, tracked_image_mats.back().rows,
                                              tracked_image_mats.back().step[0], QImage::Format_RGB888));
 
@@ -185,21 +180,22 @@ void tracker_plugin::imageCb(const sensor_msgs::ImageConstPtr& msg)
   }
   //Now before emiting let's check the cmt_tracker_node internal state and see if there is a need to do anything related to that.
   nh.getParam("tracker_updated", tracker_updated_num);
-  if (tracker_updated_num == 2)
+  if (tracker_updated_num == 2 || firstrun)
   {
+    firstrun = false;
     cmt_tracker_msgs::TrackedImages results;
     if (image_client.call(results))
     {
       tracked_images.clear();
       tracked_faces.clear();
-      tracked_images_names.clear(); 
-      for (int i= 0; i< results.response.names.size(); i++)
+      tracked_images_names.clear();
+      for (std::vector<std::string>::iterator v = results.response.names.begin(); v != results.response.names.end(); ++v)
       {
-        tracked_images_names.push_back(results.response.names[i]); 
+        tracked_images_names.push_back(*v);
       }
-      for (int i = 0; i < results.response.image.size(); i++)
+      for (std::vector<sensor_msgs::Image>::const_iterator v = results.response.image.begin(); v != results.response.image.end(); ++v)
       {
-        sensor_msgs::Image im = results.response.image[i];
+        sensor_msgs::Image im = *v;
         sensor_msgs::ImagePtr r = boost::shared_ptr<sensor_msgs::Image>(boost::make_shared<sensor_msgs::Image>(im));
         //r = boost::shared_ptr<sensor_msgs::Image>(im);
         cv_bridge::CvImageConstPtr cv_ptrs;
@@ -215,11 +211,11 @@ void tracker_plugin::imageCb(const sensor_msgs::ImageConstPtr& msg)
           return;
         }
         tracked_images.push_back(image);
-        tracked_faces.push_back(QImage((uchar*) tracked_images.back().data, tracked_images.back().cols, 
-          tracked_images.back().rows, tracked_images.back().step[0], QImage::Format_RGB888));
+        tracked_faces.push_back(QImage((uchar*) tracked_images.back().data, tracked_images.back().cols,
+                                       tracked_images.back().rows, tracked_images.back().step[0], QImage::Format_RGB888));
       }
     }
-    nh.setParam("tracker_updated", 0); 
+    nh.setParam("tracker_updated", 0);
   }
   emit updatefacelist();
 }
@@ -229,7 +225,7 @@ This function is the one that update hte UI of all things related to the system.
 */
 void tracker_plugin::updateVisibleFaces()
 {
-  
+
   ui.face_output_list->clear();
   ui.tracker_output_list->clear();
   ui.tracker_initial_list->clear();
@@ -238,19 +234,19 @@ void tracker_plugin::updateVisibleFaces()
   for (std::vector<QImage>::iterator v = face_images.begin(); v != face_images.end(); ++v)
   {
     ui.face_output_list->addItem(new QListWidgetItem(QIcon(QPixmap::fromImage(*v)), "faces"));
-    count_info++; 
+    count_info++;
   }
-  
-  count_info=0; 
+
+  count_info = 0;
   for (std::vector<QImage>::iterator v = tracked_faces.begin(); v != tracked_faces.end(); ++v)
-   {
-     ui.tracker_initial_list->addItem(new QListWidgetItem(QIcon(QPixmap::fromImage(*v)), QString::fromStdString(tracked_images_names[count_info])));
-     count_info++;
-   }
+  {
+    ui.tracker_initial_list->addItem(new QListWidgetItem(QIcon(QPixmap::fromImage(*v)), QString::fromStdString(tracked_images_names[count_info])));
+    count_info++;
+  }
 
 
 
-  count_info = 0;   
+  count_info = 0;
   for (std::vector<QImage>::iterator v = tracked_image_results.begin(); v != tracked_image_results.end(); ++v)
   {
     ui.tracker_output_list->addItem(new QListWidgetItem(QIcon(QPixmap::fromImage(*v)), QString::fromStdString(tracked_image_information[count_info])));
@@ -266,9 +262,9 @@ void tracker_plugin::list_of_faces_update(const cmt_tracker_msgs::Faces& faces_i
 {
   face_locs.faces.clear();
   //May be better to use an iterator to handle the function.
-  for (int i = 0; i < faces_info.faces.size(); i++)
+  for (std::vector<cmt_tracker_msgs::Face>::const_iterator v = faces_info.faces.begin(); v != faces_info.faces.end(); ++v)
   {
-    face_locs.faces.push_back(faces_info.faces[i]);
+    face_locs.faces.push_back((*v));
   }
 }
 
@@ -283,7 +279,7 @@ void tracker_plugin::trackerCb(const cmt_tracker_msgs::Tracker& tracker_locs)
   track_published.height.data = tracker_locs.height.data;
   track_published.tracker_name.data = tracker_locs.tracker_name.data;
 
-  //tracker_updated = true;
+  
 
 }
 void tracker_plugin::tracker_resultsCb(const cmt_tracker_msgs::Trackers& tracker_results)
@@ -291,11 +287,11 @@ void tracker_plugin::tracker_resultsCb(const cmt_tracker_msgs::Trackers& tracker
   //Check whether this is invalided when the loop exits.
   // = tracker_results;
   tracking_results.tracker_results.clear();
-  for (int i = 0; i < tracker_results.tracker_results.size(); i++)
+  for (std::vector<cmt_tracker_msgs::Tracker>::const_iterator v = tracker_results.tracker_results.begin(); v != tracker_results.tracker_results.end(); ++v)
   {
-    tracking_results.tracker_results.push_back(tracker_results.tracker_results[i]);
+    tracking_results.tracker_results.push_back(*v);
   }
-  //tracking_results_updated = true;
+  
 }
 
 void tracker_plugin::shutdownPlugin()
@@ -370,16 +366,16 @@ void tracker_plugin::on_removeAllTracked_clicked()
   //Here All Items need only be removed
   // ui.tracker_initial_list->clear();
   // ui.tracker_output_list->clear();
-  // cmt.clear();
+  
   cmt_tracker_msgs::Clear srv;
-  if (client.call(srv))
-  {
-    std::cout << "Cleared" << std::endl;
-  }
-  else {
-    std::cout << "Not Cleared" << std::endl;
-  }
-  ui.tracker_initial_list->clear();
+  client.call(srv);
+  // {
+  //   std::cout << "Cleared" << std::endl;
+  // }
+  // else {
+  //   std::cout << "Not Cleared" << std::endl;
+  // }
+  // ui.tracker_initial_list->clear();
 }
 /**
  * @brief tracker_plugin::on_removeTracked_clicked

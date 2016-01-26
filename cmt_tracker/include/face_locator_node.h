@@ -20,6 +20,15 @@
 #include <iostream>
 #include <sstream>
 
+//dlib libraries to check for better results
+#include <dlib/opencv.h>
+#include <dlib/image_processing/frontal_face_detector.h>
+#include <dlib/image_processing/render_face_detections.h>
+#include <dlib/image_processing.h>
+#include <dlib/gui_widgets.h>
+//=====
+#define NO_MAKEFILE
+#define ENABLE_ASSERTS
 #define SSTR( x ) dynamic_cast< std::ostringstream & >(( std::ostringstream() << std::dec << x ) ).str()
 
 namespace face_detect {
@@ -35,8 +44,12 @@ private:
   cv::Mat conversion_mat_;
   int counter;
   geometry_msgs::Point face_points;
+
   cv::CascadeClassifier face_cascade;
   cv::CascadeClassifier eyes_cascade;
+
+  dlib::frontal_face_detector detector; 
+
   ros::NodeHandle nh_;
   image_transport::ImageTransport it_;
   image_transport::Subscriber image_sub_;
@@ -49,6 +62,7 @@ private:
   std::string subscribe_topic;
   int time_sec;
   std_msgs::String tracking_method;
+  std_msgs::String face_detection_method; 
   bool setup;
 };
 //static class that may be called by implementing class. 

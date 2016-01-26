@@ -78,7 +78,6 @@ public:
 
     virtual void shutdownPlugin();
     
-    void callback(cmt_tracker_msgs::TrackerConfig &config, uint32_t level);
 
 signals:
     void updatefacelist();
@@ -111,7 +110,6 @@ protected slots:
 protected:
     std::vector<QImage> face_images;
     std::vector<QImage> tracked_faces;
-    // std::vector<QImage> qmap;
     std::vector<QImage> tracked_image_results;
     std::vector<std::string> tracked_image_information; 
     std::vector<std::string> emotion; 
@@ -122,17 +120,15 @@ protected:
 
     std::string subscribe_topic;
     cv::Mat conversion_mat_;
-    // cv::Mat im_gray;
+    cv::Mat img;
     // cv::Mat conversion_mat_previous;
     Ui::tracker_plugin ui;
     QWidget* widget_;
     
     std::vector<std::string> tracked_images_names; 
     int tracker_updated_num; 
-    bool tracker_updated;
-    bool trackers_updated; 
-    bool tracking_results_updated; 
-
+    std::string tracking_method; 
+    bool firstrun; 
 
     //Doubling CMT on the running model.
 

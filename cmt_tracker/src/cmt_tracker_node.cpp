@@ -54,18 +54,19 @@ TrackerCMT::TrackerCMT() : it_(nh_)
 
 bool TrackerCMT::clear(cmt_tracker_msgs::Clear::Request &req, cmt_tracker_msgs::Clear::Response &res)
 {
-  cmt.clear();
-  quality_of_tracker.clear();
-  if (cmt.size() == 0)
-  {
-    res.cleared = true;
-  }
-  else
-  {
-    res.cleared = false;
-  }
-  //update ui. 
-  nh_.setParam("tracker_updated", 2); 
+  clear_cmt = true; 
+  // cmt.clear();//Now let's call this when we do before processing. 
+  // // quality_of_tracker.clear();
+  // if (cmt.size() == 0)
+  // {
+  //   res.cleared = true;
+  // }
+  // else
+  // {
+  //   res.cleared = false;
+  // }
+  // //update ui. 
+  // nh_.setParam("tracker_updated", 2); 
   return true;
 }
 //this is a service that indicates wheteher new elements are going to be tracked or note.
@@ -155,6 +156,12 @@ void TrackerCMT::imageCb(const sensor_msgs::ImageConstPtr& msg)
   int quality_update = 0;
   int count = 0;
   poorly_tracked.clear();
+  if(clear_cmt)
+  {
+    cmt.clear(); 
+    nh_.setParam("tracker_updated", 2); 
+    clear_cmt = false; 
+  }
   std::vector<cv::Rect> tracked;
   for (std::vector<cmt::CMT>::iterator v = cmt.begin(); v != cmt.end(); ++v)
   {
@@ -169,7 +176,7 @@ void TrackerCMT::imageCb(const sensor_msgs::ImageConstPtr& msg)
         (*v).processFrame(im_gray, factor);
         cv::Rect rect = (*v).bb_rot.boundingRect();
         tracked.push_back(rect);
-        quality_of_tracker[quality_update] = (*v).num_active_keypoints;
+        // quality_of_tracker[quality_update] = (*v).num_active_keypoints;
         quality_update++;
         //FILE_LOG(logDEBUG) << "Area ouptut is: " << rect.area();
         rect = rect & cv::Rect(0, 0, im_gray.size().width, im_gray.size().height);
@@ -278,7 +285,7 @@ void TrackerCMT::set_tracker(const cmt_tracker_msgs::Tracker& tracker_location)
     tracker_num = rand() % 100000;
     std::string tracker_name = SSTR(tracker_num) ;
     cmt.back().initialize(im_gray, rect, tracker_name);
-    quality_of_tracker.push_back(cmt.back().num_initial_keypoints);
+    //quality_of_tracker.push_back(cmt.back().num_initial_keypoints);
 
     //Here is where one needs to publish new face event
     pi_face_tracker::FaceEvent m = returnPiEvents("new_face", tracker_name); 

@@ -174,7 +174,7 @@ private:
 	
 	//an array of that holds the functions of the value. 
 	std::vector<cmt::CMT> cmt;
-	std::vector<int> quality_of_tracker;
+	// std::vector<int> quality_of_tracker;
 
 	//Holds what item has lost tracking state. 
 	std::vector<int> poorly_tracked;
@@ -201,6 +201,8 @@ private:
 	//value of the system. 
 	bool update_ui;
 	bool update_ui_wait; 
+
+	bool clear_cmt; 
 
 
 };
