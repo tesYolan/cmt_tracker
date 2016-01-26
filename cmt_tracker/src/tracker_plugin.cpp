@@ -138,12 +138,14 @@ void tracker_plugin::imageCb(const sensor_msgs::ImageConstPtr& msg)
   //get the data's here sequentially.
   mat_images.clear();
   face_images.clear();
+  //emotion.clear(); 
 
   for (std::vector<cmt_tracker_msgs::Face>::iterator v = face_locs.faces.begin(); v != face_locs.faces.end() ; ++v)
   {
     mat_images.push_back(conversion_mat_(cv::Rect((*v).pixel_lu.x, (*v).pixel_lu.y, (*v).width.data, (*v).height.data)).clone());
     face_images.push_back(QImage((uchar*) mat_images.back().data, mat_images.back().cols, mat_images.back().rows,
                                  mat_images.back().step[0], QImage::Format_RGB888));
+    //emotion.push_back((*v).emotion_states.data); 
   }
 
   tracked_image_mats.clear();
@@ -232,12 +234,14 @@ void tracker_plugin::updateVisibleFaces()
   ui.tracker_output_list->clear();
   ui.tracker_initial_list->clear();
 
-  
+  int count_info = 0 ;
   for (std::vector<QImage>::iterator v = face_images.begin(); v != face_images.end(); ++v)
   {
-    ui.face_output_list->addItem(new QListWidgetItem(QIcon(QPixmap::fromImage(*v)), "Faces"));
+    ui.face_output_list->addItem(new QListWidgetItem(QIcon(QPixmap::fromImage(*v)), "faces"));
+    count_info++; 
   }
-  int count_info = 0 ;
+  
+  count_info=0; 
   for (std::vector<QImage>::iterator v = tracked_faces.begin(); v != tracked_faces.end(); ++v)
    {
      ui.tracker_initial_list->addItem(new QListWidgetItem(QIcon(QPixmap::fromImage(*v)), QString::fromStdString(tracked_images_names[count_info])));

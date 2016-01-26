@@ -14,4 +14,5 @@
 </group>
 <node pkg="cmt_tracker" name="face_locator_node" type="face_locator_node"/>
 <node pkg="cmt_tracker" name="cmt_tracker_node" type="cmt_tracker_node"/>
+<include file="$(find emotime)/launch/emotime.launch"/>
 </launch>

@@ -114,6 +114,7 @@ protected:
     // std::vector<QImage> qmap;
     std::vector<QImage> tracked_image_results;
     std::vector<std::string> tracked_image_information; 
+    std::vector<std::string> emotion; 
     std::vector<cv::Mat> tracked_image_mats;
     std::vector<cv::Mat> mat_images;
     std::vector<cv::Mat> tracked_images;
