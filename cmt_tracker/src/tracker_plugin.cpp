@@ -59,6 +59,9 @@ void tracker_plugin::initPlugin(qt_gui_cpp::PluginContext& context)
   ui.face_choice_method->addItem("Hand Selection Trackings");
   ui.face_choice_method->addItem("Remove on LOST");
   ui.face_choice_method->addItem("Face Recognition Method");
+
+  QVaraint v(0); 
+  ui.face_choice_method->model()->setData(index, v, Qt::UserRole -1);
   image_transport::ImageTransport it(nh);
 
   nh.getParam("camera_topic", subscribe_topic);
